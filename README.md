@@ -2,7 +2,7 @@
 
 ## Third party
 - Download SPOT mesh urdf and related meshes.
-- Download FRANKA mesh urdf and related meshes from the ([official repository](https://github.com/frankaemika/franka_description/tree/main/robots/fr3))
+- Download FRANKA mesh urdf and related meshes from the [official repository](https://github.com/frankaemika/franka_description/tree/main/robots/fr3)
 
 ## Setup 
 
