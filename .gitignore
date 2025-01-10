@@ -1,0 +1,7 @@
+my_spot_env/*
+spot_description/*
+franka_description/meshes/*
+*.npy
+data/*
+preprocessed_data/*
+gouger_logs/*
