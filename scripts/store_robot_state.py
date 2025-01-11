@@ -230,8 +230,8 @@ def main():
 
 
 
-    print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
-    robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
+    # print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
+    # robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
