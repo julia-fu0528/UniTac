@@ -606,7 +606,7 @@ def prepare_trimesh_fk(robot, link_fk_transforms, folder = None):
             if visual.geometry.mesh:
                 # Load the mesh
                 mesh_file = visual.geometry.mesh.filename
-                mesh = trimesh.load(os.path.join(folder_path, folder, mesh_file), force='mesh')
+                mesh = trimesh.load(os.path.join("./", folder, mesh_file), force='mesh')
                 if hasattr(mesh.visual, 'material'):
                     mesh.visual.material.alpha = 1.0  # Fully opaque
 
