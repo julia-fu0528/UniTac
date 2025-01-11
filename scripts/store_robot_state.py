@@ -137,9 +137,39 @@ class Spot(Robot):
             print(robot_state_client.get_robot_metrics())
 
         return True
+    
+    def vis_markers(self, idx, pos):
+        # Create marker for current position
+        marker = create_red_markers([pos], radius=0.02)[0]
+        geometries = self.robot_meshes + [marker]
+        print(f"Viewing marker {idx} . Press Ctrl+C in terminal to proceed to next view.")
 
+        # Visualize with specific camera view
+        up = np.array([0.0, 0.0, 1.0])
+        marker_idx = int(idx)
+        if marker_idx < 2 or 81 < marker_idx < 90:
+            front = np.array([-1.0, 0.0, 0.0])
+        if 1 < marker_idx < 4 or marker_idx > 89:
+            front = np.array([1.0, 0.0, 0.0])
+        if 3 < marker_idx < 6 or 9 < marker_idx < 34:
+            front = np.array([0.0, -1.0, 0.0])
+        if 5 < marker_idx < 8 or 33 < marker_idx < 58:
+            front = np.array([0.0, 1.0, 0.0])
+        if 7 < marker_idx < 10 or 57 < marker_idx < 82:
+            front = np.array([0.0, 0.0, -1.0])
+            up = np.array([0.0, 1.0, 0.0])
+        o3d.visualization.draw_geometries(geometries, zoom=0.5, front = -front, lookat=pos, up = up)
 
-
+    def save_data(self, idx, output_path, duration=10):
+        # user_input = input(f"Is marker position {idx} legit? Enter 'y' for yes, 'n' for no (default: 'y'): \n").strip().lower()
+        # if user_input == 'n':
+        #     print(f"Marker position {idx} deemed not legit. Skipping this marker...\n")
+        #     continue
+        output_path = os.path.join(self.output_dir, f"{idx}.npy")
+        print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
+        time.sleep(2)
+        self.collect_data(output_path, self.hostname, self.command, duration)
+        print(f"Touch Data Collected for marker position {idx}, saved in {output_path}\n")
 
 
 
@@ -227,47 +257,14 @@ def main():
         markers_pos = markers_pos[selected_idx]
         o3d.visualization.draw_geometries(robot.robot_meshes + selected_markers)
 
-
-
-
-    # print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
-    # robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
+    print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
+    robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
     for idx, pos in robot.markers_dict.items():
- 
-        # Create marker for current position
-        marker = create_red_markers([pos], radius=0.02)[0]
-        geometries = robot.robot_meshes + [marker]
-        
-        print(f"Viewing marker {idx} . Press Ctrl+C in terminal to proceed to next view.")
-        
-        # Visualize with specific camera view
-        up = np.array([0.0, 0.0, 1.0])
-        marker_idx = int(idx)
-        if marker_idx < 2 or 81 < marker_idx < 90:
-            front = np.array([-1.0, 0.0, 0.0])
-        if 1 < marker_idx < 4 or marker_idx > 89:
-            front = np.array([1.0, 0.0, 0.0])
-        if 3 < marker_idx < 6 or 9 < marker_idx < 34:
-            front = np.array([0.0, -1.0, 0.0])
-        if 5 < marker_idx < 8 or 33 < marker_idx < 58:
-            front = np.array([0.0, 1.0, 0.0])
-        if 7 < marker_idx < 10 or 57 < marker_idx < 82:
-            front = np.array([0.0, 0.0, -1.0])
-            up = np.array([0.0, 1.0, 0.0])
-        o3d.visualization.draw_geometries(geometries, zoom=0.5, front = -front, lookat=pos, up = up)
-        # user_input = input(f"Is marker position {idx} legit? Enter 'y' for yes, 'n' for no (default: 'y'): \n").strip().lower()
-    
-        # if user_input == 'n':
-        #     print(f"Marker position {idx} deemed not legit. Skipping this marker...\n")
-        #     continue
-        output_path = os.path.join(output_dir, f"{idx}.npy")
-        print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
-        time.sleep(2)
-        robot.collect_data(output_path, hostname, command, duration)
-        print(f"Touch Data Collected for marker position {idx}, saved in {output_path}\n")
+        robot.vis_markers(idx, pos)
+        robot.save_data(idx, output_dir, duration)
         
         
 
