@@ -10,14 +10,13 @@ import time
 import json
 import os
 import numpy as np
-import bosdyn.client
-import bosdyn.client.util
-from bosdyn.client.robot_state import RobotStateClient
 from urdfpy import URDF
 import open3d as o3d
 import random
 from pathlib import Path
-
+import rospy
+from rospy import Subscriber, Rate
+from sensor_msgs.msg import JointState
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
@@ -29,7 +28,7 @@ convert_trimesh_to_open3d, create_red_markers, visualize_robot_with_markers, com
 
 class Robot:
     def __init__(self, output_dir, markers_path, robot_type):
-        folder_path =  os.path.join(Path(__file__).parent.parent, f'{robot_type}_description')
+        folder_path =  os.path.join("../", f'{robot_type}_description')
 
         self.output_dir = output_dir
         self.markers_path = markers_path
@@ -62,17 +61,14 @@ class Robot:
         
         return self.markers_dict
     
-
-
-
-
-
-
 class Spot(Robot):
     def __init__(self, output_dir, markers_path, robot_type, hostname, command):
         super().__init__(output_dir, markers_path, robot_type)
         self.hostname = hostname
         self.command = command
+        import bosdyn.client
+        import bosdyn.client.util
+        from bosdyn.client.robot_state import RobotStateClient
     
     def choose_markers(self, num_points = 10000):
         markers_pos = [[0.45, 0.06, -0.035],[0.45, -0.07, -0.035], # front
@@ -108,6 +104,8 @@ class Spot(Robot):
         markers_pos.extend([[-0.42, -0.07, -0.01], [-0.42, 0.07, -0.01]])
         markers_pos = np.array(markers_pos)
         self.markers_pos, pos_indices = find_closest_vertices(self.total_mesh, markers_pos, num_points)
+        self.markers_dict = {f"{i}": pos for i, pos in enumerate(self.markers_pos)}
+
 
         return self.markers_pos
 
@@ -181,6 +179,13 @@ class Spot(Robot):
 class Franka(Robot):
     def __init__(self, output_dir, markers_path, robot_type):
         super().__init__(output_dir, markers_path, robot_type)
+        rospy.init_node("save_franka_state")
+        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        self.save_rate = Rate(30)
+        self.current_state = None
+
+    def joint_callback(self, state: JointState):
+        self.current_state = state
 
     def choose_markers(self, num_points = 10000):
         # x: 0.05 (-0.03 ~ 0.08) y: 0.02 (-0.005 ~ 0.05) -- sides, z: 0.5 (0.14 ~ 0.98) --height
@@ -218,8 +223,46 @@ class Franka(Robot):
                         + [[0.07 + np.cos(t) * 0.05, np.sin(t) * 0.05, 1.01] for t in theta][4:])
         markers_pos = np.array(markers_pos)
         self.markers_pos, pos_indices = find_closest_vertices(self.total_mesh, markers_pos, num_points)
+
         
         return self.markers_pos
+    
+
+    def vis_markers(self, idx, pos):
+        # Create marker for current position
+        marker = create_red_markers([pos], radius=0.02)[0]
+        geometries = self.robot_meshes + [marker]
+        print(f"Viewing marker {idx} . Press Ctrl+C in terminal to proceed to next view.")
+
+        o3d.visualization.draw_geometries(geometries)
+
+
+    def save_data(self, idx, output_path, duration=10):
+        # user_input = input(f"Is marker position {idx} legit? Enter 'y' for yes, 'n' for no (default: 'y'): \n").strip().lower()
+        # if user_input == 'n':
+        #     print(f"Marker position {idx} deemed not legit. Skipping this marker...\n")
+        #     continue
+        output_path = os.path.join(self.output_dir, f"{idx}.npy")
+        print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
+        time.sleep(5)
+        print("Collecting data\n")
+        # create a dictionary with all the keys the same as state bu the values as empty lists
+        state_dict = []
+        start_time = time.time()
+
+        while time.time() - start_time < duration:
+            joint_position = self.current_state.position
+            joint_torque = self.current_state.effort
+            state = np.hstack([joint_torque[:7], joint_position[:7]], )
+            state_dict.append(state)
+            self.save_rate.sleep()
+        
+        # save data 
+        print(f"Data collection complete, saved in {output_path}\n")
+        np.save(output_path, state_dict)
+
+        print(f"Touch Data Collected for marker position {idx}, saved in {output_path}\n")
+
 
 
 def main():
@@ -228,7 +271,10 @@ def main():
     commands = {'state', 'hardware', 'metrics'}
 
     parser = argparse.ArgumentParser()
-    bosdyn.client.util.add_base_arguments(parser)
+    try:
+        bosdyn.client.util.add_base_arguments(parser)
+    except:
+        pass
     parser.add_argument('command', choices=list(commands), help='Command to run')
     parser.add_argument('--output_dir', required=True, help='Output directory for data')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
@@ -236,9 +282,6 @@ def main():
     parser.add_argument('--duration', type=int, default=10, help='Duration to collect data')
     options = parser.parse_args()
 
-    # Create robot object with an image client.
-    hostname = options.hostname
-    command = options.command
     output_dir = options.output_dir
     markers_path = options.markers_path
     robot_type = options.robot_type
@@ -246,6 +289,9 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     
     if robot_type == 'spot':
+        # Create robot object with an image client.
+        hostname = options.hostname
+        command = options.command
         robot = Spot(output_dir, markers_path, robot_type, hostname, command)
         markers_positions = robot.load_markers()
     elif robot_type == 'franka':
@@ -254,12 +300,16 @@ def main():
 
         markers = create_red_markers(markers_pos, radius=0.02)
         selected_idx = [6, 27, 40, 59, 76, 92]
+        robot.markers_pos = [robot.markers_pos[i] for i in selected_idx]
+        robot.markers_dict = {f"{i}": pos for i, pos in enumerate(robot.markers_pos)}
+        print(robot.markers_dict)
+
         selected_markers = [markers[i] for i in selected_idx]
         markers_pos = markers_pos[selected_idx]
         o3d.visualization.draw_geometries(robot.robot_meshes + selected_markers)
 
     print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
-    robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
+    # robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
