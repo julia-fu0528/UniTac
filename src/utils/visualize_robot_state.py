@@ -18,8 +18,8 @@ from urdfpy import URDF
 from scipy.spatial import cKDTree
 from scipy.spatial import KDTree
 import open3d as o3d
-from src.utils.helpers import sample_points_from_mesh
-from src.utils.visualize_mesh import create_viewing_parameters, visualize_with_camera
+from helpers import sample_points_from_mesh
+from visualize_mesh import create_viewing_parameters, visualize_with_camera
 
 # from pykdl_utils.kdl_kinematics import KDLKinematics
 def load_joint_torques(torque_path):
@@ -165,6 +165,43 @@ def vis_joint_torques(torque_path_list):
     plt.show()
 
 
+def vis_joint_state(joint_path_list):
+
+    all_joint_data = None
+    total_entries = 0
+    num_joints = 0
+    for joint_path in joint_path_list:
+        state = np.load(joint_path, allow_pickle=True) 
+        breakpoint()
+        total_entries += num_entries
+        if all_joint_pos_data is None:
+            all_joint_pos_data = joint_pos_data
+        else:
+            all_joint_pos_data = np.vstack((all_joint_pos_data, joint_pos_data))
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    time_steps = np.arange(total_entries)
+
+    for j in range(num_joints):
+        plt.plot(time_steps, all_joint_pos_data[:, j], label=f'Joint {joint_names[j]}')
+
+    # Add labels and legend
+    plt.xlabel("Time")
+    plt.ylabel("Joint Position")
+    # plt.title(f"Joint Position Over Time for Each Joint for {joint_pos_path.split('.')[0]}")
+    plt.title("Joint Position Over Time for Each Joint")
+    plt.legend()
+    plt.grid(True)
+    output_dir = f"vis/1219/{joint_pos_path_list[0].split('.')[0].split('/')[-2]}"
+    os.makedirs(output_dir, exist_ok=True)
+    save_path = os.path.join(output_dir, f"{joint_pos_path_list[0].split('.')[0].split('/')[-1]}_joint.png")
+    print(f"save_path: {save_path}")
+    plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
+
+    plt.show()
+
+
+
 def vis_joint_pos(joint_pos_path_list):
     all_joint_pos_data = None
     total_entries = 0
@@ -197,6 +234,8 @@ def vis_joint_pos(joint_pos_path_list):
     plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
 
     plt.show()
+
+
 
 def load_spot():
     robot = URDF.load('spot_description/spot.urdf')
@@ -696,7 +735,7 @@ def update_joints(joint_pos_path):
 
 
 if __name__ == "__main__":
-
+    vis_joint_state(["../../data/franka_right/test/0.npy"])
     load_joint_torques("data/gouger1209/stand_h2/67.npy")
     update_joints("data/gouger1209/stand_h2/67.npy")
     # vis_joint_torques(torque_path2)

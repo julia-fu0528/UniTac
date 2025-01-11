@@ -34,6 +34,7 @@ class Robot:
         self.output_dir = output_dir
         self.markers_path = markers_path
         self.robot_type = robot_type
+        breakpoint()
         self.robot = URDF.load(os.path.join(folder_path, f'{robot_type}.urdf'))
 
         self.markers_pos = []
