@@ -45,6 +45,8 @@ def main(num_classes, markers_path, classify, seq, robot_type):
 
     trainer.fit(model, data_module)
 
+    trainer.test(model, data_module)
+
 
 
 if __name__ == "__main__":

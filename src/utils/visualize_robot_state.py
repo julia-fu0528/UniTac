@@ -169,42 +169,6 @@ def vis_joint_torques(torque_path_list):
     plt.show()
 
 
-def vis_joint_state(joint_path_list):
-
-    all_joint_data = None
-    total_entries = 0
-    num_joints = 7
-    for joint_path in joint_path_list:
-        state = np.load(joint_path, allow_pickle=True) 
-        state = state[:, -7:]
-        num_entries = state.shape[0]
-        total_entries += num_entries
-        if all_joint_data is None:
-            all_joint_data = state
-        else:
-            all_joint_data = np.vstack((all_joint_data, state))
-    # Create the plot
-    plt.figure(figsize=(10, 6))
-    time_steps = np.arange(total_entries)
-
-    for j in range(num_joints):
-        plt.plot(time_steps, all_joint_data[:, j], label=f'Joint {j}')
-
-    # Add labels and legend
-    plt.xlabel("Time")
-    plt.ylabel("Joint pos")
-    # plt.title(f"Joint Position Over Time for Each Joint for {joint_pos_path.split('.')[0]}")
-    plt.title("Joint pos Over Time for Each Joint")
-    plt.legend()
-    output_dir = f"../vis/{joint_path_list[0].split('/')[-3]}"
-    os.makedirs(output_dir, exist_ok=True)
-    save_path = os.path.join(output_dir, f"{joint_path_list[0].split('/')[-1].split('.')[0]}_pos.png")
-    print(f"save_path: {save_path}")
-    plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
-
-    plt.show()
-
-
 
 def vis_joint_pos(joint_pos_path_list):
     all_joint_pos_data = None
@@ -737,34 +701,111 @@ def update_joints(joint_pos_path):
     
 
 
+def vis_joint_state(joint_path_list):
+
+    all_joint_data = None
+    total_entries = 0
+    num_joints = 7
+    for joint_path in joint_path_list:
+        state = np.load(joint_path, allow_pickle=True) 
+        state = state[:, :7]
+        num_entries = state.shape[0]
+        total_entries += num_entries
+        if all_joint_data is None:
+            all_joint_data = state
+        else:
+            all_joint_data = np.vstack((all_joint_data, state))
+    
+    print(f"Contact {joint_path_list[0].split('/')[-1].split('.')[0]}")
+    print(f"joint 0 mean: {np.mean(all_joint_data[:, 0])}")
+    print(f"joint 1 mean: {np.mean(all_joint_data[:, 1])}")
+    print(f"joint 2 mean: {np.mean(all_joint_data[:, 2])}")
+    print(f"joint 3 mean: {np.mean(all_joint_data[:, 3])}")
+    print(f"joint 4 mean: {np.mean(all_joint_data[:, 4])}")
+    print(f"joint 5 mean: {np.mean(all_joint_data[:, 5])}")
+    print(f"joint 6 mean: {np.mean(all_joint_data[:, 6])}")
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    time_steps = np.arange(total_entries)
+
+    for j in range(num_joints):
+        print(f"joint {j} mean: {all_joint_data[:, j].shape}")
+        plt.plot(time_steps, all_joint_data[:, j], label=f'Joint {j}')
+
+    # Add labels and legend
+    plt.xlabel("Time")
+    plt.ylabel("Joint torque")
+    # plt.title(f"Joint Position Over Time for Each Joint for {joint_pos_path.split('.')[0]}")
+    plt.title(f"Joint torque Over Time for Each Joint at {joint_path_list[0].split('/')[-1].split('.')[0]}")
+    plt.legend()
+    output_dir = f"../vis/{joint_path_list[0].split('/')[-3]}"
+    os.makedirs(output_dir, exist_ok=True)
+    save_path = os.path.join(output_dir, f"{joint_path_list[0].split('/')[-1].split('.')[0]}_torque.png")
+    print(f"save_path: {save_path}")
+    plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
+
+    plt.show()
+
+def overlay_joint_state(joint_path_list):
+
+    all_joint_data = {}
+    total_entries = 1e10
+    num_joints = 14
+    for joint_path in joint_path_list:
+        state = np.load(joint_path, allow_pickle=True) 
+        state = state[:, :7]
+        num_entries = state.shape[0]
+        total_entries = min(num_entries, total_entries)
+        state = state[:total_entries, :]
+        for i in range(7):
+            key = f"contact {joint_path.split('/')[-1].split('.')[0]} joint {i}"
+            print(f"key: {key}")
+            if key not in all_joint_data:
+                all_joint_data[key] = state[:, i]
+                print(f"all_joint_data[key]: {all_joint_data[key].shape}")
+                # sys.exit()
+            else:
+                all_joint_data[key] = np.hstack((all_joint_data[key], state[:, i]))
+                print(F"all_joint_data[key]: {all_joint_data[key].shape}")
+                # sys.exit()
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    time_steps = np.arange(total_entries * 5)
+
+    for key, val in all_joint_data.items():
+        if key[8] == '3':
+            color = 'red'
+        elif key[8] == '4':
+            color = 'blue'
+        plt.plot(time_steps, val, label=key, color=color)
+
+    # Add labels and legend
+    plt.xlabel("Time")
+    plt.ylabel("Joint torque")
+    # plt.title(f"Joint Position Over Time for Each Joint for {joint_pos_path.split('.')[0]}")
+    plt.title(f"Joint torque Over Time for Each Joint at {joint_path_list[0].split('/')[-1].split('.')[0]}")
+    plt.legend()
+    output_dir = f"../vis/{joint_path_list[0].split('/')[-3]}"
+    os.makedirs(output_dir, exist_ok=True)
+    save_path = os.path.join(output_dir, f"{joint_path_list[0].split('/')[-1].split('.')[0]}_torque.png")
+    print(f"save_path: {save_path}")
+    plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
+
+    plt.show()
+
 
 if __name__ == "__main__":
-    vis_joint_state(["../../data/franka_right/test/5.npy"])
-    sys.exit()
-    load_joint_torques("data/gouger1209/stand_h2/67.npy")
-    update_joints("data/gouger1209/stand_h2/67.npy")
-    # vis_joint_torques(torque_path2)
-    vis_joint_torques(["data/gouger1209/stand_h2/67.npy"])
-    # all directories in data/gouger1209
-    all_dir = natsorted(os.listdir("data/gouger1209"))
-    all_dir = [os.path.join("data/gouger1209", dir) for dir in all_dir]
-    all_files = []
-    for directory in all_dir:
-        files = os.listdir(directory)
-        all_files.extend([os.path.join(directory, file) for file in files])
-    print(f"len all_files: {len(all_files)}")
-    no_contact_files = [f for f in all_files if "no_contact.npy" in f]
-    print(f"no_contact_files: {no_contact_files}")
-    # all files that are named 95.npy
-    files_95 = [f for f in all_files if "95.npy" in f]
-    files_26 = [f for f in all_files if "26.npy" in f]
-    # vis_joint_pos(no_contact_files)
-    # vis_joint_pos(files_95)
-    vis_joint_pos(files_26)
-    # vis_joint_torques(no_contact_files)
-    # vis_joint_torques(files_95)
-    # vis_joint_torques(files_24)
-    
-    # vis_joint_pos_delta(torque_path1, torque_path2)
+    overlay_joint_state(["../../data/franka_right/test1/3.npy",
+                     "../../data/franka_right/test2/3.npy",
+                     "../../data/franka_right/test3/3.npy",
+                     "../../data/franka_right/test4/3.npy",
+                     "../../data/franka_right/test5/3.npy",
+
+                     "../../data/franka_right/test1/4.npy",
+                     "../../data/franka_right/test2/4.npy",
+                     "../../data/franka_right/test3/4.npy",
+                     "../../data/franka_right/test4/4.npy",
+                     "../../data/franka_right/test5/4.npy",])
 
 
