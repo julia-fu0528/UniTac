@@ -51,7 +51,7 @@ class LitSpot(L.LightningModule):
         super().__init__()
         self.model = JointNetwork(input_dim, output_dim, classify)
         self.seq = seq
-        self.val_outputs = {"preds": [], "labels": []}
+        self.test_outputs = {"preds": [], "labels": []}
         self.robot_type = robot_type
         # self.device = device  
 
@@ -154,16 +154,67 @@ class LitSpot(L.LightningModule):
         self.log("val/acc", acc, on_epoch = True, prog_bar = True)
         self.log("val/dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
 
-        self.val_outputs["preds"].append(y_hat_label)
-        self.val_outputs["labels"].append(y_label)
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        device = self._get_device()
+        x, y = batch["joint_data"].float().to(device), batch["contact_label"].float().to(device)
+
+        y_hat = self(x)
+
+        threshold = 0.1 * np.sqrt(self.seq)
+        if self.classify:
+            y_hat_idx = torch.argmax(y_hat, dim=1)
+            y_idx = torch.argmax(y, dim=1)
+            loss = F.cross_entropy(y_hat, y_idx)
+
+            y_hat_label = y_hat_idx.float()         
+            y_label = y_idx.float()
+
+            y_hat_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_hat_idx])
+            y_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_idx])
+
+            correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
+            if self.robot_type == 'franka':
+                acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
+            elif self.robot_type == 'spot':
+                acc = np.mean(correct)
+
+            euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
+
+        else:
+            loss = F.mse_loss(y_hat, y)
+            y_hat_pos = y_hat.detach().cpu().numpy()
+            y_pos = y.cpu().numpy()
+
+            euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
+
+            correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
+            acc = np.mean(correct)
+
+        self.log("test/loss", loss, on_epoch = True, prog_bar = True)
+        self.log("test/acc", acc, on_epoch = True, prog_bar = True)
+        self.log("test/dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
+
+        self.test_outputs["preds"].append(y_hat_label)
+        self.test_outputs["labels"].append(y_label)
 
         return loss
     
 
     def on_validation_epoch_end(self):
-        all_preds = torch.cat(self.val_outputs["preds"], dim=0)
+        avg_val_loss = self.trainer.logged_metrics.get("val/loss")
+        val_acc = self.trainer.logged_metrics.get("val/acc")
+        val_dist = self.trainer.logged_metrics.get("val/dist")
+
+        print(f"Epoch {self.current_epoch}: Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Euclidean Distance: {val_dist:.4f}")
+
+
+    def on_test_epoch_end(self):
+        all_preds = torch.cat(self.test_outputs["preds"], dim=0)
         print(f"all_preds: {all_preds.shape}")
-        all_labels = torch.cat(self.val_outputs["labels"], dim=0)
+        all_labels = torch.cat(self.test_outputs["labels"], dim=0)
         print(F"all_labels: {all_labels.shape}")
 
         all_preds_np = all_preds.cpu().numpy()
@@ -173,15 +224,16 @@ class LitSpot(L.LightningModule):
 
         f1 = f1_score(all_labels_np, all_preds_np, average='weighted')
 
-        self.log('val_f1_score', f1)
+        self.log('test_f1_score', f1)
         self.plot_confusion_matrix(conf_matrix, class_names = self.marker_positions.keys())
 
 
-        avg_val_loss = self.trainer.logged_metrics.get("val/loss")
-        val_acc = self.trainer.logged_metrics.get("val/acc")
-        val_dist = self.trainer.logged_metrics.get("val/dist")
+        avg_test_loss = self.trainer.logged_metrics.get("test/loss")
+        test_acc = self.trainer.logged_metrics.get("test/acc")
+        test_dist = self.trainer.logged_metrics.get("test/dist")
 
-        print(f"Epoch {self.current_epoch}: Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Euclidean Distance: {val_dist:.4f}")
+        print(f"Epoch {self.current_epoch}: Test Loss: {avg_test_loss:.4f}, Test Acc: {test_acc:.4f}, Test Euclidean Distance: {test_dist:.4f}")
+        print(f"Test F1 Score: {f1:.4f}")
     
 
     def plot_confusion_matrix(self, cm, class_names, file_path="confusion_matrix.png"):
