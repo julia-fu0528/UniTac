@@ -70,22 +70,21 @@ class JointLabel:
         # randomly pick a number from 0 to num_dir
         if self.robot_type == 'spot':
             val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 10), 2)
-            train_dirs = []
-            val_dirs = []
-            for idx, dir in enumerate(dirs):
-                if os.path.isdir(os.path.join(self.torque_dir, dir)):
-                    if idx in val_indices:
-                        val_dirs.append(os.path.join(self.torque_dir, dir))
-                    else:
-                        train_dirs.append(os.path.join(self.torque_dir, dir))
-            print(f"val dirs: {val_dirs}")
-            for train_dir in train_dirs:
-                self.load_data(train_dir, mode='train')
-            for val_dir in val_dirs:
-                self.load_data(val_dir, mode='val')
         elif self.robot_type == 'franka':
-            for idx, cur_dir in enumerate(dirs):
-                self.load_data(os.path.join(self.torque_dir, cur_dir))
+            val_indices = random.sample(range(0, num_dir), 1)
+        train_dirs = []
+        val_dirs = []
+        for idx, dir in enumerate(dirs):
+            if os.path.isdir(os.path.join(self.torque_dir, dir)):
+                if idx in val_indices:
+                    val_dirs.append(os.path.join(self.torque_dir, dir))
+                else:
+                    train_dirs.append(os.path.join(self.torque_dir, dir))
+        print(f"val dirs: {val_dirs}")
+        for train_dir in train_dirs:
+            self.load_data(train_dir, mode='train')
+        for val_dir in val_dirs:
+            self.load_data(val_dir, mode='val')
         
         print(f"Finished data preprocessing")
     
@@ -102,31 +101,23 @@ class JointLabel:
                     label = self.class_to_label[class_name]
                     if self.robot_type == 'franka':
                         state = np.load(torque_path, allow_pickle=True)
-                        val_indices = random.sample(range(0, state.shape[0]), int(0.2 * len(state)))
-                        normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
-                        self.training_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i not in val_indices])
-                        self.validation_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i in val_indices])
-                        if self.classify:
-                            label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
-                        self.training_labels.extend([label for i in range(state.shape[0]) if i not in val_indices])
-                        self.validation_labels.extend([label for i in range(state.shape[0]) if i in val_indices])
                     elif self.robot_type == 'spot':
                         torque, _, _, _ = load_joint_torques(torque_path)
                         joint_angle, _, _, _ = load_joint_positions(torque_path)
                         state = np.hstack((torque, joint_angle))
-                        normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
-                        for joint_data in normalized_data:
-                            if mode == 'train':
-                                self.training_data.append(joint_data)
-                            else:
-                                self.validation_data.append(joint_data)
-                        if self.classify:
-                            label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
-                        for i in range(len(normalized_data)):
-                            if mode == 'train':
-                                self.training_labels.append(label)
-                            else:
-                                self.validation_labels.append(label)
+                    normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
+                    for joint_data in normalized_data:
+                        if mode == 'train':
+                            self.training_data.append(joint_data)
+                        else:
+                            self.validation_data.append(joint_data)
+                    if self.classify:
+                        label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
+                    for i in range(len(normalized_data)):
+                        if mode == 'train':
+                            self.training_labels.append(label)
+                        else:
+                            self.validation_labels.append(label)
         print(f"Finished loading data from {dir}")
 
 class SpotDataset(Dataset):
