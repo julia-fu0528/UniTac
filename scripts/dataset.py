@@ -26,8 +26,6 @@ from src.utils.visualize_robot_state import load_joint_torques, load_joint_posit
 
 class JointLabel:
     def __init__(self, torque_dir, markers_path, classify, robot_type) -> None:
-        print(f"robot_type:{robot_type}")
-        sys.exit()
         self.torque_dir = torque_dir
         self.robot_type = robot_type
         self.training_data = []

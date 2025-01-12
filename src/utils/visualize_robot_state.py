@@ -18,6 +18,10 @@ from urdfpy import URDF
 from scipy.spatial import cKDTree
 from scipy.spatial import KDTree
 import open3d as o3d
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
 from helpers import sample_points_from_mesh
 from visualize_mesh import create_viewing_parameters, visualize_with_camera
 

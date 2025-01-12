@@ -7,7 +7,7 @@
 
 
 echo "################# DATALOADER ###############################"
-python dataset.py --session gouger1209 --data_dir ../data \
+python dataset.py --session franka_right --data_dir ../data \
                     --markers_path ../data/gouger_markers_pos.txt --seq 1 --classify --robot_type franka \
 
 # echo "################# TRAINING ###############################"
@@ -41,4 +41,4 @@ python dataset.py --session gouger1209 --data_dir ../data \
 
 
 
-
+# numpy 2.0.2
