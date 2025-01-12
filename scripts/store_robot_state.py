@@ -14,9 +14,9 @@ from urdfpy import URDF
 import open3d as o3d
 import random
 from pathlib import Path
-import rospy
-from rospy import Subscriber, Rate
-from sensor_msgs.msg import JointState
+# import rospy
+# from rospy import Subscriber, Rate
+# from sensor_msgs.msg import JointState
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
@@ -33,7 +33,6 @@ class Robot:
         self.output_dir = output_dir
         self.markers_path = markers_path
         self.robot_type = robot_type
-        breakpoint()
         self.robot = URDF.load(os.path.join(folder_path, f'{robot_type}.urdf'))
 
         self.markers_pos = []
@@ -179,13 +178,13 @@ class Spot(Robot):
 class Franka(Robot):
     def __init__(self, output_dir, markers_path, robot_type):
         super().__init__(output_dir, markers_path, robot_type)
-        rospy.init_node("save_franka_state")
-        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
-        self.save_rate = Rate(30)
+        # rospy.init_node("save_franka_state")
+        # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        # self.save_rate = Rate(30)
         self.current_state = None
 
-    def joint_callback(self, state: JointState):
-        self.current_state = state
+    # def joint_callback(self, state: JointState):
+    #     self.current_state = state
 
     def choose_markers(self, num_points = 10000):
         # x: 0.05 (-0.03 ~ 0.08) y: 0.02 (-0.005 ~ 0.05) -- sides, z: 0.5 (0.14 ~ 0.98) --height
@@ -275,7 +274,9 @@ def main():
         bosdyn.client.util.add_base_arguments(parser)
     except:
         pass
+
     parser.add_argument('command', choices=list(commands), help='Command to run')
+    parser.add_argument('--hostname', required=True, help='Hostname of the robot')
     parser.add_argument('--output_dir', required=True, help='Output directory for data')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
     parser.add_argument('--robot_type', required=True, help='Robot type: spot or franka')
