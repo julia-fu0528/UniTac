@@ -243,7 +243,7 @@ class Franka(Robot):
         #     continue
         output_path = os.path.join(self.output_dir, f"{idx}.npy")
         print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
-        time.sleep(5)
+        time.sleep(2)
         print("Collecting data\n")
         # create a dictionary with all the keys the same as state bu the values as empty lists
         state_dict = []
@@ -307,14 +307,14 @@ def main():
         robot.save_markers()
 
 
-    print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
+    # print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
     # robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
     for idx, pos in robot.markers_dict.items():
         robot.vis_markers(idx, pos)
-        robot.save_data(idx, output_dir, duration)
+        robot.save_data(idx, output_dir, duration=5)
         
         
 
