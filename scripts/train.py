@@ -11,26 +11,28 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from network import LitSpot
 from dataset import SpotDataModule
 
-def main(num_classes, markers_path, classify, seq):
+def main(num_classes, markers_path, classify, seq, robot_type):
     seed_everything(42)
 
     log_dir = os.path.join(Path(__file__).parent.parent, "gouger_logs")
 
     if classify:
-        tb_logger = TensorBoardLogger(log_dir, name="classification")
+        tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}/classification")
     else:
-        tb_logger = TensorBoardLogger(log_dir, name="regression")
+        tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}/regression")
 
-    data_module = SpotDataModule(classify, seq, batch_size=128)
+    data_module = SpotDataModule(classify, seq, robot_type = robot_type, batch_size=32)
     if classify:
         output_dim = num_classes
     else:
         output_dim = 3
-    model = LitSpot(input_dim = 24 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq)
+    if robot_type == 'spot':
+        model = LitSpot(input_dim = 24 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
+    elif robot_type == 'franka':
+        model = LitSpot(input_dim = 14 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
 
-
-    checkpoint_callback = ModelCheckpoint(monitor="val_acc", mode="max", save_last=True, filename="best")
-    early_stop_callback = EarlyStopping(monitor="val_acc", patience=100, mode="max")
+    checkpoint_callback = ModelCheckpoint(monitor="val/acc", mode="max", save_last=True, filename="best")
+    early_stop_callback = EarlyStopping(monitor="val/acc", patience=100, mode="max")
 
     trainer = Trainer(
         # accelerator="gpu",
@@ -50,6 +52,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--session', type = str, required=True, help='Session for data collection')
+    parser.add_argument('--robot_type', type = str, required=True, help='spot or franka')
     parser.add_argument('--data_dir', required=True, help='Output directory for data')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
     parser.add_argument('--device', required=True, help='gpu or cpu')
@@ -65,6 +68,7 @@ if __name__ == "__main__":
     markers_path = options.markers_path
     device = options.device
     seq = options.seq
+    robot_type = options.robot_type
 
     # current folder path 
     folder_path =  Path(__file__).parent
@@ -87,5 +91,5 @@ if __name__ == "__main__":
     # print(f"Euclidean distance between marker 10 and 11: {euclidean_distance}")
     # sys.exit()
 
-    main(num_classes, markers_path, classify, seq)
+    main(num_classes, markers_path, classify, seq, robot_type=robot_type)
     
