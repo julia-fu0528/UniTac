@@ -17,9 +17,9 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     log_dir = os.path.join(Path(__file__).parent.parent, "gouger_logs")
 
     if classify:
-        tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}/classification")
+        tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}", name = "classification")
     else:
-        tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}/regression")
+        tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}", name = "regression")
 
     data_module = SpotDataModule(classify, seq, robot_type = robot_type, batch_size=32)
     if classify:
@@ -38,7 +38,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
         # accelerator="gpu",
         accelerator=device,
         # accelerator="cpu",
-        max_epochs=20,
+        max_epochs=40, 
         logger=[tb_logger],
         callbacks=[checkpoint_callback, early_stop_callback]
     )

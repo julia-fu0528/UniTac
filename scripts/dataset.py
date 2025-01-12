@@ -177,9 +177,11 @@ class SpotDataModule(L.LightningDataModule):
         if self.classify:
             self.train_set = SpotDataset(dataset_mode="classify", seq = self.seq,  robot_type = self.robot_type, mode='train')
             self.val_set = SpotDataset(dataset_mode="classify",  seq = self.seq,  robot_type = self.robot_type, mode='val')
+            self.test_set = SpotDataset(dataset_mode="classify",  seq = self.seq,  robot_type = self.robot_type, mode='val')
         else:
             self.train_set = SpotDataset(dataset_mode="regression",  seq = self.seq, robot_type = self.robot_type, mode='train')
             self.val_set = SpotDataset(dataset_mode="regression",  seq = self.seq, robot_type = self.robot_type, mode='val')
+            self.test_set = SpotDataset(dataset_mode="regression",  seq = self.seq, robot_type = self.robot_type, mode='val')
     
     def train_dataloader(self):
         return DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True,
@@ -188,6 +190,11 @@ class SpotDataModule(L.LightningDataModule):
     
     def val_dataloader(self):
         return DataLoader(self.val_set, batch_size=self.batch_size, shuffle=False,
+            num_workers=4,
+            pin_memory=True)
+    
+    def test_dataloader(self):
+        return DataLoader(self.test_set, batch_size=self.batch_size, shuffle=False,
             num_workers=4,
             pin_memory=True)
 
