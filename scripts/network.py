@@ -20,6 +20,10 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Linear(64, 128),
                 nn.ReLU(),
+                nn.Linear(128, 256),
+                nn.ReLU(),
+                nn.Linear(256, 128),
+                nn.ReLU(),
                 nn.Linear(128, output_dim),
                 nn.Softmax(dim=1)
             )
@@ -39,14 +43,16 @@ class JointNetwork(nn.Module):
         return self.network(x)
 
 class LitSpot(L.LightningModule):
-    def __init__(self, input_dim: int, output_dim: int, markers_path, classify, seq) -> None:
+    def __init__(self, input_dim: int, output_dim: int, markers_path, classify, seq, robot_type) -> None:
         super().__init__()
         self.model = JointNetwork(input_dim, output_dim, classify)
         self.seq = seq
+        self.val_outputs = {"preds": [], "labels": []}
+        self.robot_type = robot_type
         # self.device = device  
 
         self.classify = classify
-        self.learning_rate = 2e-3
+        self.learning_rate = 1e-3
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
@@ -82,7 +88,10 @@ class LitSpot(L.LightningModule):
             y_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_idx]) 
             
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
-            acc = np.mean(correct)
+            if self.robot_type == 'franka':
+                acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
+            elif self.robot_type == 'spot':
+                acc = np.mean(correct)
             euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
 
         else:
@@ -95,9 +104,9 @@ class LitSpot(L.LightningModule):
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
             acc = np.mean(correct)
 
-        self.log("train_loss", loss, on_epoch = True, prog_bar = True)
-        self.log("train_acc", acc, on_epoch = True, prog_bar = True)
-        self.log("train_dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
+        self.log("train/loss", loss, on_epoch = True, prog_bar = True)
+        self.log("train/acc", acc, on_epoch = True, prog_bar = True)
+        self.log("train/dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
 
         return loss
     
@@ -120,7 +129,10 @@ class LitSpot(L.LightningModule):
             y_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_idx])
 
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
-            acc = np.mean(correct)
+            if self.robot_type == 'franka':
+                acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
+            elif self.robot_type == 'spot':
+                acc = np.mean(correct)
 
             euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
 
@@ -134,19 +146,53 @@ class LitSpot(L.LightningModule):
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
             acc = np.mean(correct)
 
-        self.log("val_loss", loss, on_epoch = True, prog_bar = True)
-        self.log("val_acc", acc, on_epoch = True, prog_bar = True)
-        self.log("val_dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
+        self.log("val/loss", loss, on_epoch = True, prog_bar = True)
+        self.log("val/acc", acc, on_epoch = True, prog_bar = True)
+        self.log("val/dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
+
+        self.val_outputs["preds"].append(y_hat_label)
+        self.val_outputs["labels"].append(y_label)
 
         return loss
     
 
     def on_validation_epoch_end(self):
-        avg_val_loss = self.trainer.logged_metrics.get("val_loss")
-        val_acc = self.trainer.logged_metrics.get("val_acc")
-        val_dist = self.trainer.logged_metrics.get("val_dist")
-        print(f"Epoch {self.current_epoch}: Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Euclidean Distance: {val_dist:.4f}")
+        all_preds = torch.cat(self.val_outputs["preds"], dim=0)
+        print(f"all_preds: {all_preds.shape}")
+        all_labels = torch.cat(self.val_outputs["labels"], dim=0)
+        print(F"all_labels: {all_labels.shape}")
 
+        all_preds_np = all_preds.cpu().numpy()
+        all_labels_np = all_labels.cpu().numpy()
+
+        conf_matrix = metrics.confusion_matrix(all_labels_np, all_preds_np, labels=range(len(self.marker_positions.keys())))
+
+        f1 = f1_score(all_labels_np, all_preds_np, average='weighted')
+
+        self.log('val_f1_score', f1)
+        self.plot_confusion_matrix(conf_matrix, class_names = self.marker_positions.keys())
+
+
+        avg_val_loss = self.trainer.logged_metrics.get("val/loss")
+        val_acc = self.trainer.logged_metrics.get("val/acc")
+        val_dist = self.trainer.logged_metrics.get("val/dist")
+
+        print(f"Epoch {self.current_epoch}: Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}, Val Euclidean Distance: {val_dist:.4f}")
+    
+
+    def plot_confusion_matrix(self, cm, class_names, file_path="confusion_matrix.png"):
+        fig, ax = plt.subplots(figsize=(8, 8))
+        sns.heatmap(cm, annot=True, fmt='d', ax=ax, cmap='Blues', cbar=False)
+        ax.set_xlabel('Predicted Labels')
+        ax.set_ylabel('True Labels')
+        ax.set_xticklabels(class_names)
+        ax.set_yticklabels(class_names)
+        ax.set_title('Confusion Matrix')
+        plt.xticks(rotation=90)
+        plt.yticks(rotation=0)
+        plt.savefig(file_path)
+        plt.close()
+        # plt.show()
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

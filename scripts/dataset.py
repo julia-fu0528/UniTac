@@ -84,8 +84,8 @@ class JointLabel:
             for val_dir in val_dirs:
                 self.load_data(val_dir, mode='val')
         elif self.robot_type == 'franka':
-            for idx, dir in enumerate(dirs):
-                self.load_data(dir)
+            for idx, cur_dir in enumerate(dirs):
+                self.load_data(os.path.join(self.torque_dir, cur_dir))
         
         print(f"Finished data preprocessing")
     
@@ -104,13 +104,8 @@ class JointLabel:
                         state = np.load(torque_path, allow_pickle=True)
                         val_indices = random.sample(range(0, state.shape[0]), int(0.2 * len(state)))
                         normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
-                        print(f"normalized_data: {normalized_data.shape}")
-                        sys.exit()
                         self.training_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i not in val_indices])
                         self.validation_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i in val_indices])
-                        print(f"self.training_data: {len(self.training_data)}")
-                        print(f"self.validation_data: {len(self.validation_data)}")
-                        sys.exit()
                         if self.classify:
                             label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
                         self.training_labels.extend([label for i in range(state.shape[0]) if i not in val_indices])
@@ -136,8 +131,6 @@ class JointLabel:
 
 class SpotDataset(Dataset):
     def __init__(self, dataset_mode, seq, robot_type, mode='train') -> None:
-        print(f"robot_type spot:{robot_type}")
-        sys.exit()
         super().__init__()
         self.mode = mode
         self.seq = seq
@@ -246,8 +239,6 @@ if __name__ == "__main__":
     # save_dir = os.path.join(folder_path.parent, "preprocessed_data", dataset_mode)
     save_dir = os.path.join("../preprocessed_data", robot_type, dataset_mode)
     os.makedirs(save_dir, exist_ok=True)
-    print(f"save_dir: {save_dir}")
-    sys.exit()
     if classify:
         training_labels = np.stack(joint_label.training_labels)  # Stack instead of simple array conversion
         validation_labels = np.stack(joint_label.validation_labels)
