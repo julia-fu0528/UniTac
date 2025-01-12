@@ -3,5 +3,6 @@ spot_description/*
 franka_description/meshes/*
 *.npy
 data/*
+src/vis/*
 preprocessed_data/*
 gouger_logs/*

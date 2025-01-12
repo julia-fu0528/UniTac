@@ -25,8 +25,9 @@ sys.path.append(os.path.join(current_dir, '..'))
 from src.utils.visualize_robot_state import load_joint_torques, load_joint_positions
 
 class JointLabel:
-    def __init__(self, torque_dir, markers_path, classify) -> None:
+    def __init__(self, torque_dir, markers_path, classify, robot_type) -> None:
         self.torque_dir = torque_dir
+        self.robot_type = robot_type
         self.training_data = []
         self.training_labels = []
         self.validation_data = []
@@ -65,22 +66,27 @@ class JointLabel:
         num_dir = len([name for name in os.listdir(self.torque_dir) if os.path.isdir(os.path.join(self.torque_dir, name))])
         start_dir = 28
         end_dir = 39
-        # randomly pick a number from 0 to num_dir
-        val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 10), 2)
-        train_dirs = []
-        val_dirs = []
         dirs = natsorted(os.listdir(self.torque_dir))
-        for idx, dir in enumerate(dirs):
-            if os.path.isdir(os.path.join(self.torque_dir, dir)):
-                if idx in val_indices:
-                    val_dirs.append(os.path.join(self.torque_dir, dir))
-                else:
-                    train_dirs.append(os.path.join(self.torque_dir, dir))
-        print(f"val dirs: {val_dirs}")
-        for train_dir in train_dirs:
-            self.load_data(train_dir, mode='train')
-        for val_dir in val_dirs:
-            self.load_data(val_dir, mode='val')
+        # randomly pick a number from 0 to num_dir
+        if self.robot_type == 'spot':
+            val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 10), 2)
+            train_dirs = []
+            val_dirs = []
+            for idx, dir in enumerate(dirs):
+                if os.path.isdir(os.path.join(self.torque_dir, dir)):
+                    if idx in val_indices:
+                        val_dirs.append(os.path.join(self.torque_dir, dir))
+                    else:
+                        train_dirs.append(os.path.join(self.torque_dir, dir))
+            print(f"val dirs: {val_dirs}")
+            for train_dir in train_dirs:
+                self.load_data(train_dir, mode='train')
+            for val_dir in val_dirs:
+                self.load_data(val_dir, mode='val')
+        elif self.robot_type == 'franka':
+            for idx, dir in enumerate(dirs):
+                self.load_data(dir)
+        
         print(f"Finished data preprocessing")
     
     def load_data(self, dir, mode='train'):
@@ -94,33 +100,47 @@ class JointLabel:
                         class_name = '100'
                 if class_name in self.class_to_label.keys():
                     label = self.class_to_label[class_name]
-                    torque, _, _, _ = load_joint_torques(torque_path)
-                    joint_angle, _, _, _ = load_joint_positions(torque_path)
-                    data = np.hstack((torque, joint_angle))
-                    normalized_data = 2 * ((data - data.min()) / (data.max() - data.min())) - 1
-                    for joint_data in normalized_data:
-                        if mode == 'train':
-                            self.training_data.append(joint_data)
-                        else:
-                            self.validation_data.append(joint_data)
-                    if self.classify:
-                        label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
-                    for i in range(len(normalized_data)):
-                        if mode == 'train':
-                            self.training_labels.append(label)
-                        else:
-                            self.validation_labels.append(label)
+                    if self.robot_type == 'franka':
+                        state = np.load(torque_path, allow_pickle=True)
+                        val_indices = random.sample(range(0, state.shape[0]), int(0.2 * len(state)))
+                        normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
+                        self.training_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i not in val_indices])
+                        self.validation_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i in val_indices])
+                        if self.classify:
+                            label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
+                        self.training_labels.extend([label for i in range(state.shape[0]) if i not in val_indices])
+                        self.validation_labels.extend([label for i in range(state.shape[0]) if i in val_indices])
+                    elif self.robot_type == 'spot':
+                        torque, _, _, _ = load_joint_torques(torque_path)
+                        joint_angle, _, _, _ = load_joint_positions(torque_path)
+                        state = np.hstack((torque, joint_angle))
+                        normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
+                        for joint_data in normalized_data:
+                            if mode == 'train':
+                                self.training_data.append(joint_data)
+                            else:
+                                self.validation_data.append(joint_data)
+                        if self.classify:
+                            label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
+                        for i in range(len(normalized_data)):
+                            if mode == 'train':
+                                self.training_labels.append(label)
+                            else:
+                                self.validation_labels.append(label)
         print(f"Finished loading data from {dir}")
 
 class SpotDataset(Dataset):
-    def __init__(self, dataset_mode, seq, mode='train') -> None:
+    def __init__(self, dataset_mode, seq, robot_type, mode='train') -> None:
         super().__init__()
         self.mode = mode
         self.seq = seq
         self.dataset_mode = dataset_mode
+        self.robot_type = robot_type
         folder_path = Path(__file__).parent.parent
-        self.joint_data = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
-        self.contact_labels = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
+        self.joint_data = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
+        self.contact_labels = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
+        # self.joint_data = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
+        # self.contact_labels = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
 
         assert len(self.joint_data) == len(self.contact_labels), "Length of joint data and contact labels should be the same"
     
@@ -155,19 +175,20 @@ class SpotDataset(Dataset):
         }
 
 class SpotDataModule(L.LightningDataModule):
-    def __init__(self, classify, seq, batch_size=32) -> None:
+    def __init__(self, classify, seq, robot_type, batch_size=32) -> None:
         super().__init__()
         self.batch_size = batch_size
         self.classify = classify
         self.seq = seq
+        self.robot_type = robot_type
 
     def setup(self, stage=None):
         if self.classify:
-            self.train_set = SpotDataset(dataset_mode="classify", seq = self.seq,  mode='train')
-            self.val_set = SpotDataset(dataset_mode="classify",  seq = self.seq,  mode='val')
+            self.train_set = SpotDataset(dataset_mode="classify", seq = self.seq,  robot_type = self.robot_type, mode='train')
+            self.val_set = SpotDataset(dataset_mode="classify",  seq = self.seq,  robot_type = self.robot_type, mode='val')
         else:
-            self.train_set = SpotDataset(dataset_mode="regression",  seq = self.seq,  mode='train')
-            self.val_set = SpotDataset(dataset_mode="regression",  seq = self.seq,  mode='val')
+            self.train_set = SpotDataset(dataset_mode="regression",  seq = self.seq, robot_type = self.robot_type, mode='train')
+            self.val_set = SpotDataset(dataset_mode="regression",  seq = self.seq, robot_type = self.robot_type, mode='val')
     
     def train_dataloader(self):
         return DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True,
@@ -184,6 +205,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--session', type = str, required=True, help='Session for data collection')
+    parser.add_argument('--robot_type', type = str, required=True, help='spot or franka')
     parser.add_argument('--data_dir', required=True, help='Output directory for data')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
     parser.add_argument('--classify', action='store_true', help='Run classification model instead of regression')
@@ -192,6 +214,7 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     classify = options.classify
+    robot_type = options.robot_type
     seq = options.seq
 
     session = options.session

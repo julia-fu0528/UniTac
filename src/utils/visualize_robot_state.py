@@ -169,32 +169,32 @@ def vis_joint_state(joint_path_list):
 
     all_joint_data = None
     total_entries = 0
-    num_joints = 0
+    num_joints = 7
     for joint_path in joint_path_list:
         state = np.load(joint_path, allow_pickle=True) 
-        breakpoint()
+        state = state[:, -7:]
+        num_entries = state.shape[0]
         total_entries += num_entries
-        if all_joint_pos_data is None:
-            all_joint_pos_data = joint_pos_data
+        if all_joint_data is None:
+            all_joint_data = state
         else:
-            all_joint_pos_data = np.vstack((all_joint_pos_data, joint_pos_data))
+            all_joint_data = np.vstack((all_joint_data, state))
     # Create the plot
     plt.figure(figsize=(10, 6))
     time_steps = np.arange(total_entries)
 
     for j in range(num_joints):
-        plt.plot(time_steps, all_joint_pos_data[:, j], label=f'Joint {joint_names[j]}')
+        plt.plot(time_steps, all_joint_data[:, j], label=f'Joint {j}')
 
     # Add labels and legend
     plt.xlabel("Time")
-    plt.ylabel("Joint Position")
+    plt.ylabel("Joint pos")
     # plt.title(f"Joint Position Over Time for Each Joint for {joint_pos_path.split('.')[0]}")
-    plt.title("Joint Position Over Time for Each Joint")
+    plt.title("Joint pos Over Time for Each Joint")
     plt.legend()
-    plt.grid(True)
-    output_dir = f"vis/1219/{joint_pos_path_list[0].split('.')[0].split('/')[-2]}"
+    output_dir = f"../vis/{joint_path_list[0].split('/')[-3]}"
     os.makedirs(output_dir, exist_ok=True)
-    save_path = os.path.join(output_dir, f"{joint_pos_path_list[0].split('.')[0].split('/')[-1]}_joint.png")
+    save_path = os.path.join(output_dir, f"{joint_path_list[0].split('/')[-1].split('.')[0]}_pos.png")
     print(f"save_path: {save_path}")
     plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
 
@@ -735,7 +735,8 @@ def update_joints(joint_pos_path):
 
 
 if __name__ == "__main__":
-    vis_joint_state(["../../data/franka_right/test/0.npy"])
+    vis_joint_state(["../../data/franka_right/test/5.npy"])
+    sys.exit()
     load_joint_torques("data/gouger1209/stand_h2/67.npy")
     update_joints("data/gouger1209/stand_h2/67.npy")
     # vis_joint_torques(torque_path2)
