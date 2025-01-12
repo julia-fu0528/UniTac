@@ -26,6 +26,8 @@ from src.utils.visualize_robot_state import load_joint_torques, load_joint_posit
 
 class JointLabel:
     def __init__(self, torque_dir, markers_path, classify, robot_type) -> None:
+        print(f"robot_type:{robot_type}")
+        sys.exit()
         self.torque_dir = torque_dir
         self.robot_type = robot_type
         self.training_data = []
@@ -104,8 +106,13 @@ class JointLabel:
                         state = np.load(torque_path, allow_pickle=True)
                         val_indices = random.sample(range(0, state.shape[0]), int(0.2 * len(state)))
                         normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
+                        print(f"normalized_data: {normalized_data.shape}")
+                        sys.exit()
                         self.training_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i not in val_indices])
                         self.validation_data.extend([normalized_data[i, :] for i in range(state.shape[0]) if i in val_indices])
+                        print(f"self.training_data: {len(self.training_data)}")
+                        print(f"self.validation_data: {len(self.validation_data)}")
+                        sys.exit()
                         if self.classify:
                             label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
                         self.training_labels.extend([label for i in range(state.shape[0]) if i not in val_indices])
@@ -131,6 +138,8 @@ class JointLabel:
 
 class SpotDataset(Dataset):
     def __init__(self, dataset_mode, seq, robot_type, mode='train') -> None:
+        print(f"robot_type spot:{robot_type}")
+        sys.exit()
         super().__init__()
         self.mode = mode
         self.seq = seq
@@ -228,7 +237,7 @@ if __name__ == "__main__":
     folder_path =  Path(__file__).parent
     torque_dir = os.path.join(folder_path, data_dir, session)
 
-    joint_label = JointLabel(torque_dir, markers_path, classify=classify)
+    joint_label = JointLabel(torque_dir, markers_path, robot_type=robot_type, classify=classify)
     
     print(f"Saving training and validation data")
     if classify:
@@ -236,8 +245,11 @@ if __name__ == "__main__":
     else:
         dataset_mode = "regression"
 
-    save_dir = os.path.join(folder_path.parent, "preprocessed_data", dataset_mode)
+    # save_dir = os.path.join(folder_path.parent, "preprocessed_data", dataset_mode)
+    save_dir = os.path.join("../preprocessed_data", robot_type, dataset_mode)
     os.makedirs(save_dir, exist_ok=True)
+    print(f"save_dir: {save_dir}")
+    sys.exit()
     if classify:
         training_labels = np.stack(joint_label.training_labels)  # Stack instead of simple array conversion
         validation_labels = np.stack(joint_label.validation_labels)
@@ -250,5 +262,5 @@ if __name__ == "__main__":
     np.save(os.path.join(save_dir,f"val_contact_labels_{seq}.npy"), validation_labels)
     print(f"Training and validation data saved to {save_dir}")
 
-    train_dataset = SpotDataset(dataset_mode, seq = seq, mode='train')
+    train_dataset = SpotDataset(dataset_mode, seq = seq, robot_type = robot_type, mode='train')
     print(train_dataset[0])
