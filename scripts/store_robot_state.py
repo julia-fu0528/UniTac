@@ -304,10 +304,8 @@ def main():
         robot.markers_pos = [robot.markers_pos[i] for i in selected_idx]
         robot.markers_dict = {f"{i}": pos for i, pos in enumerate(robot.markers_pos)}
         print(robot.markers_dict)
+        robot.save_markers()
 
-        selected_markers = [markers[i] for i in selected_idx]
-        markers_pos = markers_pos[selected_idx]
-        o3d.visualization.draw_geometries(robot.robot_meshes + selected_markers)
 
     print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
     # robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
