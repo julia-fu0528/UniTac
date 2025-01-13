@@ -14,9 +14,9 @@ from urdfpy import URDF
 import open3d as o3d
 import random
 from pathlib import Path
-# import rospy
-# from rospy import Subscriber, Rate
-# from sensor_msgs.msg import JointState
+import rospy
+from rospy import Subscriber, Rate
+from sensor_msgs.msg import JointState
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
@@ -48,12 +48,37 @@ class Robot:
         for mesh in self.robot_meshes:
             self.total_mesh += mesh
     
-    def save_markers(self):
+    def save_markers(self, original_colors = None, visualizer=None):
         np.savetxt(self.markers_path, self.markers_pos, delimiter=",", comments="")
 
         # visualize markers
-        markers = create_red_markers(self.markers_pos, radius=0.02)
-        o3d.visualization.draw_geometries(self.robot_meshes + markers)
+        if visualizer == None:
+            markers = create_red_markers(self.markers_pos, radius=0.02)
+            o3d.visualization.draw_geometries(self.robot_meshes + markers)
+        else:
+            for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
+                pcd.colors = o3d.utility.Vector3dVector(orig_color)
+            
+            start_time = time.time()
+
+            while time.time() - start_time < 10:
+                joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
+                # joint_position = self.current_state.position
+                joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
+                # joint_torque = self.current_state.effort
+                cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
+                visualizer.visualize(cfg=cfg)
+                # state = np.hstack([joint_torque[:7], joint_position[:7]], )
+                # state_dict.append(state)
+
+                for pcd_indices, local_indices in zip(visualizer.pcd_indices, visualizer.local_indices):
+                    for pcd_idx, local_idx in zip(pcd_indices, local_indices):
+                        colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
+                        colors[local_idx] = [1, 0, 0]
+                        visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+
+            
+
     
     def load_markers(self):
         self.markers_pos = np.loadtxt(self.markers_path, delimiter=",")
@@ -179,13 +204,13 @@ class Spot(Robot):
 class Franka(Robot):
     def __init__(self, output_dir, markers_path, robot_type):
         super().__init__(output_dir, markers_path, robot_type)
-        # rospy.init_node("save_franka_state")
-        # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
-        # self.save_rate = Rate(30)
+        rospy.init_node("save_franka_state")
+        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        self.save_rate = Rate(30)
         self.current_state = None
 
-    # def joint_callback(self, state: JointState):
-    #     self.current_state = state
+    def joint_callback(self, state: JointState):
+        self.current_state = state
 
     def choose_markers(self, num_points = 10000):
         # x: 0.05 (-0.03 ~ 0.08) y: 0.02 (-0.005 ~ 0.05) -- sides, z: 0.5 (0.14 ~ 0.98) --height
@@ -237,40 +262,68 @@ class Franka(Robot):
         o3d.visualization.draw_geometries(geometries)
 
 
-    def save_data(self, idx, output_path, original_colors, duration=10, visualizer=None):
-        # user_input = input(f"Is marker position {idx} legit? Enter 'y' for yes, 'n' for no (default: 'y'): \n").strip().lower()
-        # if user_input == 'n':
-        #     print(f"Marker position {idx} deemed not legit. Skipping this marker...\n")
-        #     continue
-        output_path = os.path.join(self.output_dir, f"{idx}.npy")
-        print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
-        time.sleep(2)
-        print("Collecting data\n")
+    def save_data(self, idx, output_path, original_colors, duration=2, visualizer=None):
+
+        if idx != -1:
+            output_path = os.path.join(self.output_dir, f"{idx}.npy")
+        else:
+            output_path = os.path.join(self.output_dir, f"no_contact.npy")
         # create a dictionary with all the keys the same as state bu the values as empty lists
         state_dict = []
-        start_time = time.time()
 
         for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
-        while time.time() - start_time < duration:
+        view_control = visualizer.vis.get_view_control()
+        if idx != -1:
+            pcd_indices = visualizer.pcd_indices[int(idx)]
+            local_indices = visualizer.local_indices[int(idx)]
+
+            cur_pcd = visualizer.point_clouds[pcd_indices[0]]
+            points = np.asarray(cur_pcd.points)
+            pos = points[local_indices[0]]
+            if not cur_pcd.has_normals():
+                cur_pcd.compute_normals()
+            normals = np.asarray(cur_pcd.normals)
+            normal = normals[local_indices[0]]
+
+            view_control.set_lookat(pos)  # Look at center
+            view_control.set_front(normal)  # Camera direction
+            view_control.set_up([0, 0, 1])     # Up direction
+            view_control.set_zoom(0.7) 
+            visualizer.vis.poll_events()
+            visualizer.vis.update_renderer()
+
+            for pcd_idx, local_idx in zip(pcd_indices, local_indices):
+                colors = np.asarray(cur_pcd.colors)
+                colors[local_idx] = [1, 0, 0]
+                visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+
+            print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
+        else:
+            print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
+        # time.sleep(5)
+        # print("Collecting data\n")
+        printed = False
+
+        
+        start_time = time.time()
+        while time.time() - start_time < duration + 5:
+            # VISUALIZE
             joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
-            joint_position = self.current_state.position
-            joint_torque = self.current_state.effort
+            # joint_position = self.current_state.position
+            joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
             cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
-            visualizer.visualize(cfg=cfg)
-            state = np.hstack([joint_torque[:7], joint_position[:7]], )
-            state_dict.append(state)
+            visualizer.visualize(cfg=cfg)            
 
-            if idx != -1:
-
-                pcd_indices = visualizer.pcd_indices[int(idx)]
-                local_indices = visualizer.local_indices[int(idx)]
-
-                for pcd_idx, local_idx in zip(pcd_indices, local_indices):
-                    colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
-                    colors[local_idx] = [1, 0, 0]
-                    visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+            
+            # COLELCT DATA
+            if time.time() - start_time > 5:
+                if not printed:
+                    print("Collecting data\n")
+                joint_torque = self.current_state.effort
+                state = np.hstack([joint_torque[:7], joint_position[:7]], )
+                state_dict.append(state)
         
         # save data 
         print(f"Data collection complete, saved in {output_path}\n")
@@ -296,7 +349,7 @@ def main():
     parser.add_argument('--output_dir', required=True, help='Output directory for data')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
     parser.add_argument('--robot_type', required=True, help='Robot type: spot or franka')
-    parser.add_argument('--duration', type=int, default=10, help='Duration to collect data')
+    parser.add_argument('--duration', type=int, default=2, help='Duration to collect data')
     options = parser.parse_args()
 
     output_dir = options.output_dir
@@ -318,22 +371,24 @@ def main():
         markers = create_red_markers(markers_pos, radius=0.02)
         selected_idx = [6, 27, 40, 59, 76, 92]
         robot.markers_pos = [robot.markers_pos[i] for i in selected_idx]
-        visualizer.marker_2vert(robot.markers_pos, radius = 0.03)
-        robot.markers_dict = {f"{i}": pos for i, pos in enumerate(robot.markers_pos)}
-        print(robot.markers_dict)
-        robot.save_markers()
 
         vis = o3d.visualization.Visualizer() 
         vis.create_window()
         visualizer = SpotVisualizer(robot_type = "franka", vis=vis)
-
         original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
+        visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
+        
 
-    print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
+
+        robot.markers_dict = {f"{i}": pos for i, pos in enumerate(robot.markers_pos)}
+        print(robot.markers_dict)
+        robot.save_markers(original_colors=original_colors, visualizer=visualizer)
+
+
     if robot_type == 'spot':
         robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=10)
     elif robot_type == 'franka':
-        robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=10, visualizer = visualizer)
+        robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=10, visualizer = visualizer)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
@@ -342,7 +397,7 @@ def main():
             robot.vis_markers(idx, pos)
             robot.save_data(idx, output_dir, duration=5)
         elif robot_type == 'franka':
-            robot.save_data(idx, output_dir, original_colors=original_colors, duration=5, visualizer = visualizer)
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration, visualizer = visualizer)
         
         
 

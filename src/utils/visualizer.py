@@ -105,7 +105,7 @@ class SpotVisualizer():
             else:
                 o3d.visualization.draw_geometries(self.o3d_meshes_default)
     
-    def marker_2vert(self, markers_pos, radius = 0.03):
+    def marker_2vert(self, markers_pos, radius = 0.02):
         all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.point_clouds])
         kdtree = cKDTree(all_points)
 
