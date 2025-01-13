@@ -21,6 +21,7 @@ from pathlib import Path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
 
+from src.utils.visualizer import SpotVisualizer
 from src.utils.visualize_mesh import create_viewing_parameters, visualize_with_camera, look_at
 from src.utils.visualize_robot_state import find_closest_vertices, add_red_dots, compute_forward_kinematics, prepare_trimesh_fk, \
 convert_trimesh_to_open3d, create_red_markers, visualize_robot_with_markers, combine_meshes_o3d
@@ -236,7 +237,7 @@ class Franka(Robot):
         o3d.visualization.draw_geometries(geometries)
 
 
-    def save_data(self, idx, output_path, duration=10):
+    def save_data(self, idx, output_path, original_colors, duration=10, visualizer=None):
         # user_input = input(f"Is marker position {idx} legit? Enter 'y' for yes, 'n' for no (default: 'y'): \n").strip().lower()
         # if user_input == 'n':
         #     print(f"Marker position {idx} deemed not legit. Skipping this marker...\n")
@@ -249,12 +250,27 @@ class Franka(Robot):
         state_dict = []
         start_time = time.time()
 
+        for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
+            pcd.colors = o3d.utility.Vector3dVector(orig_color)
+
         while time.time() - start_time < duration:
+            joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
             joint_position = self.current_state.position
             joint_torque = self.current_state.effort
+            cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
+            visualizer.visualize(cfg=cfg)
             state = np.hstack([joint_torque[:7], joint_position[:7]], )
             state_dict.append(state)
-            self.save_rate.sleep()
+
+            if idx != -1:
+
+                pcd_indices = visualizer.pcd_indices[int(idx)]
+                local_indices = visualizer.local_indices[int(idx)]
+
+                for pcd_idx, local_idx in zip(pcd_indices, local_indices):
+                    colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
+                    colors[local_idx] = [1, 0, 0]
+                    visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
         
         # save data 
         print(f"Data collection complete, saved in {output_path}\n")
@@ -302,19 +318,31 @@ def main():
         markers = create_red_markers(markers_pos, radius=0.02)
         selected_idx = [6, 27, 40, 59, 76, 92]
         robot.markers_pos = [robot.markers_pos[i] for i in selected_idx]
+        visualizer.marker_2vert(robot.markers_pos, radius = 0.03)
         robot.markers_dict = {f"{i}": pos for i, pos in enumerate(robot.markers_pos)}
         print(robot.markers_dict)
         robot.save_markers()
 
+        vis = o3d.visualization.Visualizer() 
+        vis.create_window()
+        visualizer = SpotVisualizer(robot_type = "franka", vis=vis)
 
-    # print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
-    # robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=20)
+        original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
+
+    print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
+    if robot_type == 'spot':
+        robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=10)
+    elif robot_type == 'franka':
+        robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=10, visualizer = visualizer)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
     for idx, pos in robot.markers_dict.items():
-        robot.vis_markers(idx, pos)
-        robot.save_data(idx, output_dir, duration=5)
+        if robot_type == 'spot':
+            robot.vis_markers(idx, pos)
+            robot.save_data(idx, output_dir, duration=5)
+        elif robot_type == 'franka':
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=5, visualizer = visualizer)
         
         
 

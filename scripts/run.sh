@@ -1,9 +1,9 @@
 
-# echo "################# COLLECT DATA ###########################"
-# python store_robot_state.py state --hostname 138.16.161.22 \
-#                             --markers_path ../data/franka_6markers_pos.txt\
-#                             --output_dir ../data/franka_right/test \
-#                             --robot_type franka \
+echo "################# COLLECT DATA ###########################"
+python store_robot_state.py state --hostname 138.16.161.22 \
+                            --markers_path ../data/franka_6markers_pos.txt\
+                            --output_dir ../data/franka_right/test \
+                            --robot_type franka \
 
 
 # echo "################# DATALOADER ###############################"
@@ -11,10 +11,10 @@
 #                     --markers_path ../data/franka_6markers_pos.txt \
 #                     --seq 1 --classify --robot_type franka \
 
-echo "################# TRAINING ###############################"
-python train.py --session franka_right --data_dir ../data \
-                --markers_path ../data/franka_6markers_pos.txt --device "gpu" \
-                --seq 1 --robot_type franka --classify
+# echo "################# TRAINING ###############################"
+# python train.py --session franka_right --data_dir ../data \
+#                 --markers_path ../data/franka_6markers_pos.txt --device "gpu" \
+#                 --seq 1 --robot_type franka --classify
 
 
 # echo "################# PREDICTING ################################"

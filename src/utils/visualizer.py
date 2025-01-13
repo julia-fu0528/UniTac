@@ -3,14 +3,20 @@ import trimesh
 import numpy as np
 import open3d as o3d
 from collections import OrderedDict
+from scipy.spatial import cKDTree
 
 class SpotVisualizer():
-    def __init__(self, vis=None):
+    def __init__(self, robot_type, vis=None):
         self.vis = vis
         self.prev_fks = []
         self.point_clouds = []
         self.points_per_mesh = 300
-        self.robot = URDF.load("spot_description/spot.urdf")
+        self.robot_type = robot_type
+        self.robot = URDF.load(f"../{robot_type}_description/{robot_type}.urdf")
+        
+        # for markers
+        self.pcd_indices = []
+        self.local_indices = []
         
         # link -> body
         self.fk_default = self.robot.visual_trimesh_fk(cfg=None)
@@ -91,12 +97,35 @@ class SpotVisualizer():
         else:
             self.update_open3d_meshes(fk)
             if self.vis:
+
                 for geometry in self.o3d_meshes_default:
                     self.vis.update_geometry(geometry)
                 self.vis.poll_events()
                 self.vis.update_renderer()
             else:
                 o3d.visualization.draw_geometries(self.o3d_meshes_default)
+    
+    def marker_2vert(self, markers_pos, radius = 0.03):
+        all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.point_clouds])
+        kdtree = cKDTree(all_points)
+
+        point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in self.point_clouds]
+        point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
+        
+        for marker_pos in markers_pos:
+            indices = kdtree.query_ball_point(marker_pos, radius)
+            cur_marker_pcd_indices = []
+            cur_marker_local_indices = []
+            for idx in indices:
+                pcd_idx = np.searchsorted(point_cloud_boundaries, idx, side='right') - 1
+                local_idx = idx - point_cloud_boundaries[pcd_idx]
+
+                cur_marker_pcd_indices.append(pcd_idx)
+                cur_marker_local_indices.append(local_idx)
+            self.pcd_indices.append(cur_marker_pcd_indices)
+            self.local_indices.append(cur_marker_local_indices)
+
+
         
 
 
