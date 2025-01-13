@@ -271,7 +271,11 @@ class Franka(Robot):
         for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
-        view_control = visualizer.vis.get_view_control()
+        # VISUALIZE
+        joint_position = self.current_state.position
+        # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74])
+        cfg = {joint: joint_position[idx] for idx, joint in enumerate(visualizer.robot.actuated_joint_names)}
+        visualizer.visualize(cfg=cfg)
         if idx != -1:
             pcd_indices = visualizer.pcd_indices[int(idx)]
             local_indices = visualizer.local_indices[int(idx)]
@@ -284,42 +288,24 @@ class Franka(Robot):
             normals = np.asarray(cur_pcd.normals)
             normal = normals[local_indices[0]]
 
-            view_control.set_lookat(pos)  # Look at center
-            view_control.set_front(normal)  # Camera direction
-            view_control.set_up([0, 0, 1])     # Up direction
-            view_control.set_zoom(0.7) 
-            visualizer.vis.poll_events()
-            visualizer.vis.update_renderer()
-
             for pcd_idx, local_idx in zip(pcd_indices, local_indices):
                 colors = np.asarray(cur_pcd.colors)
                 colors[local_idx] = [1, 0, 0]
                 visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+            o3d.visualization.draw_geometries(visualizer.point_clouds, zoom=0.7, front = normal, lookat=pos, up = [0, 0, 1])
 
             print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
         else:
+            o3d.visualization.draw_geometries(visualizer.point_clouds, zoom = 0.7, front = [1, 0, 0], lookat=[0, 0, 0.5], up = [0, 1, 0])
             print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
-        # time.sleep(5)
-        # print("Collecting data\n")
-        printed = False
 
+        print("Collecting data\n")
         
         start_time = time.time()
-        while time.time() - start_time < duration + 10:
-            # VISUALIZE
-            joint_position = self.current_state.position
-            cfg = {joint: joint_position[idx] for idx, joint in enumerate(visualizer.robot.actuated_joint_names)}
-            # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
-            visualizer.visualize(cfg=cfg)            
-
-            
-            # COLELCT DATA
-            if time.time() - start_time > 10:
-                if not printed:
-                    print("Collecting data\n")
-                joint_torque = self.current_state.effort
-                state = np.hstack([joint_torque[:7], joint_position[:7]], )
-                state_dict.append(state)
+        while time.time() - start_time < duration:          
+            joint_torque = self.current_state.effort
+            state = np.hstack([joint_torque[:7], joint_position[:7]], )
+            state_dict.append(state)
         
         # save data 
         print(f"Data collection complete, saved in {output_path}\n")
@@ -370,7 +356,8 @@ def main():
 
         vis = o3d.visualization.Visualizer() 
         vis.create_window()
-        visualizer = SpotVisualizer(robot_type = "franka", vis=vis)
+        # visualizer = SpotVisualizer(robot_type = "franka", vis=vis)
+        visualizer = SpotVisualizer(robot_type = "franka")
         original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
         visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
         
