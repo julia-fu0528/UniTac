@@ -14,9 +14,9 @@ from urdfpy import URDF
 import open3d as o3d
 import random
 from pathlib import Path
-# import rospy
-# from rospy import Subscriber, Rate
-# from sensor_msgs.msg import JointState
+import rospy
+from rospy import Subscriber, Rate
+from sensor_msgs.msg import JointState
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
