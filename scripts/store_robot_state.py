@@ -14,9 +14,9 @@ from urdfpy import URDF
 import open3d as o3d
 import random
 from pathlib import Path
-import rospy
-from rospy import Subscriber, Rate
-from sensor_msgs.msg import JointState
+# import rospy
+# from rospy import Subscriber, Rate
+# from sensor_msgs.msg import JointState
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
@@ -61,15 +61,12 @@ class Robot:
             
             start_time = time.time()
 
-            while time.time() - start_time < 10:
+            while time.time() - start_time < 100:
                 joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
-                # joint_position = self.current_state.position
-                joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
-                # joint_torque = self.current_state.effort
+                joint_position = self.current_state.position
+                # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
                 cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
                 visualizer.visualize(cfg=cfg)
-                # state = np.hstack([joint_torque[:7], joint_position[:7]], )
-                # state_dict.append(state)
 
                 for pcd_indices, local_indices in zip(visualizer.pcd_indices, visualizer.local_indices):
                     for pcd_idx, local_idx in zip(pcd_indices, local_indices):
@@ -311,8 +308,8 @@ class Franka(Robot):
         while time.time() - start_time < duration + 5:
             # VISUALIZE
             joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
-            # joint_position = self.current_state.position
-            joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
+            joint_position = self.current_state.position
+            # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
             cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
             visualizer.visualize(cfg=cfg)            
 
@@ -369,7 +366,7 @@ def main():
         markers_pos = robot.choose_markers()
 
         markers = create_red_markers(markers_pos, radius=0.02)
-        selected_idx = [6, 27, 40, 59, 76, 92]
+        selected_idx = [6, 13, 27, 30, 40, 59, 67, 76, 80, 92]
         robot.markers_pos = [robot.markers_pos[i] for i in selected_idx]
 
         vis = o3d.visualization.Visualizer() 
