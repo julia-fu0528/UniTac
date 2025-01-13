@@ -61,18 +61,18 @@ class Robot:
             
             start_time = time.time()
 
-            while time.time() - start_time < 100:
-                joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
-                joint_position = self.current_state.position
-                # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
-                cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
-                visualizer.visualize(cfg=cfg)
+            # while time.time() - start_time < 100:
+            #     joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
+            #     joint_position = self.current_state.position
+            #     # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
+            #     cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
+            #     visualizer.visualize(cfg=cfg)
 
-                for pcd_indices, local_indices in zip(visualizer.pcd_indices, visualizer.local_indices):
-                    for pcd_idx, local_idx in zip(pcd_indices, local_indices):
-                        colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
-                        colors[local_idx] = [1, 0, 0]
-                        visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+            #     for pcd_indices, local_indices in zip(visualizer.pcd_indices, visualizer.local_indices):
+            #         for pcd_idx, local_idx in zip(pcd_indices, local_indices):
+            #             colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
+            #             colors[local_idx] = [1, 0, 0]
+            #             visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
 
             
 
@@ -305,17 +305,16 @@ class Franka(Robot):
 
         
         start_time = time.time()
-        while time.time() - start_time < duration + 5:
+        while time.time() - start_time < duration + 10:
             # VISUALIZE
-            joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
             joint_position = self.current_state.position
+            cfg = {joint: joint_position[idx] for idx, joint in enumerate(visualizer.robot.actuated_joint_names)}
             # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
-            cfg = {joint: pos for joint, pos in zip(joint_positions.keys(), joint_position)}
             visualizer.visualize(cfg=cfg)            
 
             
             # COLELCT DATA
-            if time.time() - start_time > 5:
+            if time.time() - start_time > 10:
                 if not printed:
                     print("Collecting data\n")
                 joint_torque = self.current_state.effort
@@ -342,7 +341,7 @@ def main():
         pass
 
     parser.add_argument('command', choices=list(commands), help='Command to run')
-    parser.add_argument('--hostname', required=True, help='Hostname of the robot')
+    parser.add_argument('--hostname', required=False, help='Hostname of the robot')
     parser.add_argument('--output_dir', required=True, help='Output directory for data')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
     parser.add_argument('--robot_type', required=True, help='Robot type: spot or franka')
