@@ -306,6 +306,7 @@ class Franka(Robot):
             joint_torque = self.current_state.effort
             state = np.hstack([joint_torque[:7], joint_position[:7]], )
             state_dict.append(state)
+            self.save_rate.sleep()
         
         # save data 
         print(f"Data collection complete, saved in {output_path}\n")
