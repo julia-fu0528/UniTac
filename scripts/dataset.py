@@ -43,12 +43,11 @@ class JointLabel:
         classes = [f.split('.')[0] for f in torque_files]
 
         self.classes = classes
-
         self.num_classes = len(classes)
         coordinates = {}
         for c in classes:
             if self.marker_positions.get(c) is None:
-                coordinates['100'] = np.array([0, 0, 0])
+                coordinates[str(self.num_classes)] = np.array([0, 0, 0])
             else:
                 coordinates[c] = self.marker_positions.get(c)
 
@@ -71,7 +70,7 @@ class JointLabel:
         if self.robot_type == 'spot':
             val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 10), 2)
         elif self.robot_type == 'franka':
-            val_indices = random.sample(range(0, num_dir), 1)
+            val_indices = random.sample(range(0, num_dir), num_dir//5)
         train_dirs = []
         val_dirs = []
         for idx, dir in enumerate(dirs):
@@ -96,7 +95,7 @@ class JointLabel:
                 class_name = torque_file.split(".")[0] # extract label from the file name
                 if class_name == 'no_contact':
                     if not self.classify:
-                        class_name = '100'
+                        class_name = str(self.num_classes)
                 if class_name in self.class_to_label.keys():
                     label = self.class_to_label[class_name]
                     if self.robot_type == 'franka':

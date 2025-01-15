@@ -22,12 +22,6 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Linear(128, 128),
                 nn.ReLU(),
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.Linear(128, 128),
-                nn.ReLU(),
                 nn.Linear(128, output_dim),
                 nn.Softmax(dim=1)
             )
@@ -36,10 +30,50 @@ class JointNetwork(nn.Module):
                 nn.Flatten(),
                 nn.Linear(input_dim, 64),
                 nn.ReLU(),
+                nn.BatchNorm1d(64), 
+
                 nn.Linear(64, 128),
                 nn.ReLU(),
+                nn.BatchNorm1d(128), 
+
                 nn.Linear(128, 128),
                 nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.BatchNorm1d(128),
+
+                nn.Linear(128, 128),
+                nn.ReLU(), 
+                # nn.Dropout(0.1),
+                nn.BatchNorm1d(128),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.BatchNorm1d(128),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                nn.BatchNorm1d(128),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.BatchNorm1d(128),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                nn.BatchNorm1d(128),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.BatchNorm1d(128),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.BatchNorm1d(128),
+
                 nn.Linear(128, output_dim)
             )
     
@@ -53,14 +87,14 @@ class LitSpot(L.LightningModule):
         self.seq = seq
         self.test_outputs = {"preds": [], "labels": []}
         self.robot_type = robot_type
-        # self.device = device  
+        # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 7e-5
+        self.learning_rate = 8e-4
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
-        self.marker_positions['100'] = np.array([0, 0, 0])
+        self.marker_positions[str(len(markers_pos))] = np.array([0, 0, 0])
 
         self.rev_marker_positions = {
             tuple(np.round(v.astype(np.float32), decimals=4)): k for k, v in self.marker_positions.items()}
@@ -91,11 +125,11 @@ class LitSpot(L.LightningModule):
             y_hat_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_hat_idx])
             y_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_idx]) 
             
+            # if self.robot_type == 'franka':
+            #     acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
+            # elif self.robot_type == 'spot':
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
-            if self.robot_type == 'franka':
-                acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
-            elif self.robot_type == 'spot':
-                acc = np.mean(correct)
+            acc = np.mean(correct)
             euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
 
         else:
@@ -132,11 +166,11 @@ class LitSpot(L.LightningModule):
             y_hat_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_hat_idx])
             y_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_idx])
 
+            # if self.robot_type == 'franka':
+            #     acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
+            # elif self.robot_type == 'spot':
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
-            if self.robot_type == 'franka':
-                acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
-            elif self.robot_type == 'spot':
-                acc = np.mean(correct)
+            acc = np.mean(correct)
 
             euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
 
@@ -176,10 +210,10 @@ class LitSpot(L.LightningModule):
             y_pos = np.array([self.marker_positions.get(str(i.item())) for i in y_idx])
 
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
-            if self.robot_type == 'franka':
-                acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
-            elif self.robot_type == 'spot':
-                acc = np.mean(correct)
+            # if self.robot_type == 'franka':
+            #     acc = metrics.accuracy_score(y_idx.cpu().numpy(), y_hat_idx.cpu().numpy())
+            # elif self.robot_type == 'spot':
+            acc = np.mean(correct)
 
             euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
 
@@ -197,8 +231,9 @@ class LitSpot(L.LightningModule):
         self.log("test/acc", acc, on_epoch = True, prog_bar = True)
         self.log("test/dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
 
-        self.test_outputs["preds"].append(y_hat_label)
-        self.test_outputs["labels"].append(y_label)
+        if self.classify:
+            self.test_outputs["preds"].append(y_hat_label)
+            self.test_outputs["labels"].append(y_label)
 
         return loss
     
@@ -212,20 +247,22 @@ class LitSpot(L.LightningModule):
 
 
     def on_test_epoch_end(self):
-        all_preds = torch.cat(self.test_outputs["preds"], dim=0)
-        print(f"all_preds: {all_preds.shape}")
-        all_labels = torch.cat(self.test_outputs["labels"], dim=0)
-        print(F"all_labels: {all_labels.shape}")
+        if self.classify:
+            all_preds = torch.cat(self.test_outputs["preds"], dim=0)
+            print(f"all_preds: {all_preds.shape}")
+            all_labels = torch.cat(self.test_outputs["labels"], dim=0)
+            print(F"all_labels: {all_labels.shape}")
 
-        all_preds_np = all_preds.cpu().numpy()
-        all_labels_np = all_labels.cpu().numpy()
+            all_preds_np = all_preds.cpu().numpy()
+            all_labels_np = all_labels.cpu().numpy()
 
-        conf_matrix = metrics.confusion_matrix(all_labels_np, all_preds_np, labels=range(len(self.marker_positions.keys())))
+            conf_matrix = metrics.confusion_matrix(all_labels_np, all_preds_np, labels=range(len(self.marker_positions.keys())))
 
-        f1 = f1_score(all_labels_np, all_preds_np, average='weighted')
+            f1 = f1_score(all_labels_np, all_preds_np, average='weighted')
 
-        self.log('test_f1_score', f1)
-        self.plot_confusion_matrix(conf_matrix, class_names = self.marker_positions.keys())
+            self.log('test_f1_score', f1)
+            self.plot_confusion_matrix(conf_matrix, class_names = self.marker_positions.keys())
+            print(f"Test F1 Score: {f1:.4f}")
 
 
         avg_test_loss = self.trainer.logged_metrics.get("test/loss")
@@ -233,7 +270,6 @@ class LitSpot(L.LightningModule):
         test_dist = self.trainer.logged_metrics.get("test/dist")
 
         print(f"Epoch {self.current_epoch}: Test Loss: {avg_test_loss:.4f}, Test Acc: {test_acc:.4f}, Test Euclidean Distance: {test_dist:.4f}")
-        print(f"Test F1 Score: {f1:.4f}")
     
 
     def plot_confusion_matrix(self, cm, class_names, file_path="confusion_matrix.png"):
@@ -252,6 +288,7 @@ class LitSpot(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+
         return optimizer
     
     def predict(self, inputs):
