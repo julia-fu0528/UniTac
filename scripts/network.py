@@ -29,41 +29,17 @@ class JointNetwork(nn.Module):
             self.network = nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(input_dim, 64),
-                nn.ReLU(),
-                nn.BatchNorm1d(64), 
+                nn.ReLU(), 
+                # nn.BatchNorm1d(64),
 
                 nn.Linear(64, 128),
                 nn.ReLU(),
-                nn.BatchNorm1d(128), 
-
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                nn.BatchNorm1d(128),
-
-                nn.Linear(128, 128),
-                nn.ReLU(), 
-                # nn.Dropout(0.1),
-                nn.BatchNorm1d(128),
-
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                nn.BatchNorm1d(128),
-
-                # nn.Linear(128, 128),
-                # nn.ReLU(),
                 # nn.BatchNorm1d(128),
 
-                # nn.Linear(128, 128),
-                # nn.ReLU(),
+                nn.Linear(128, 128),
+                nn.ReLU(),
                 # nn.Dropout(0.3),
                 # nn.BatchNorm1d(128),
-
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.Dropout(0.1),
-                nn.BatchNorm1d(128),
 
                 nn.Linear(128, output_dim)
             )
@@ -81,7 +57,7 @@ class LitSpot(L.LightningModule):
         # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 13e-4
+        self.learning_rate = 1e-3
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
@@ -278,7 +254,7 @@ class LitSpot(L.LightningModule):
         # plt.show()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-5)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
         return optimizer
     
