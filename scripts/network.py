@@ -41,6 +41,7 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Linear(256, 256),
                 nn.ReLU(),
+                nn.Dropout(0.3),
                 nn.Linear(256, 256),
                 nn.ReLU(),
                 nn.Linear(256, 256),
@@ -81,7 +82,7 @@ class LitSpot(L.LightningModule):
         # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 9e-4
+        self.learning_rate = 5e-4
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
