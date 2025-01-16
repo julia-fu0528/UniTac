@@ -138,14 +138,14 @@ def visualize_prediction(marker_positions, predicted_class, robot_meshes):
 #     return tf.reduce_mean(correct_predictions)
 
 
-def load_from_checkpoint(checkpoint_path, input_dim, output_dim, markers_path, device, classify, seq):
+def load_from_checkpoint(checkpoint_path, input_dim, output_dim, markers_path, device, classify, seq, robot_type):
     """
     Load a model from a checkpoint file.
     """
     if device == "gpu":
         device = "cuda"
     checkpoint = torch.load(checkpoint_path, map_location=torch.device(device))
-    model = LitSpot(input_dim=input_dim, output_dim=output_dim, markers_path=markers_path, classify=classify, seq = seq)
+    model = LitSpot(input_dim=input_dim, output_dim=output_dim, markers_path=markers_path, classify=classify, seq = seq, robot_type=robot_type)
     model.load_state_dict(checkpoint['state_dict'])
     model.to(device)
     model.eval()
@@ -187,6 +187,7 @@ def main():
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
     parser.add_argument('--data_dir', required=True, help='Path to the directory containing torque data')
     parser.add_argument('--device', required=True, help='gpu or cpu')
+    parser.add_argument('--robot_type', required=True, help='Robot type: spot or franka')
     parser.add_argument('--choreography-filepaths', required=True, nargs='+',
                     help='List of filepath(s) to load the choreographed sequence text files from.')
     parser.add_argument('--classify', action='store_true', help='Run classification model instead of regression')
@@ -198,6 +199,7 @@ def main():
     classify = options.classify
     device  = options.device
     seq = options.seq
+    robot_type = options.robot_type
     choreo_files = options.choreography_filepaths
 
 
@@ -212,7 +214,7 @@ def main():
         output_dim = 101
     else:
         output_dim = 3
-    model = load_from_checkpoint(options.ckpts_path, input_dim=24 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, device=device, seq=seq)
+    model = load_from_checkpoint(options.ckpts_path, input_dim=24 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, device=device, seq=seq, robot_type=robot_type)
     print("Model loaded successfully.")
 
     # Initialize robot and client
@@ -360,7 +362,7 @@ def main():
    
     vis = o3d.visualization.Visualizer() 
     vis.create_window()
-    visualizer = SpotVisualizer(vis=vis)
+    visualizer = SpotVisualizer(robot_type=robot_type, vis=vis)
 
     radius = 0.04
     alpha = 0.95
