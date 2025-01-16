@@ -34,10 +34,13 @@ class JointNetwork(nn.Module):
 
                 nn.Linear(64, 128),
                 nn.ReLU(),
+                ResidualBlock(128),
                 # nn.BatchNorm1d(128),
 
                 nn.Linear(128, 128),
                 nn.ReLU(),
+                ResidualBlock(128),
+                ResidualBlock(128),
                 # nn.Dropout(0.3),
                 # nn.BatchNorm1d(128),
 
@@ -46,6 +49,19 @@ class JointNetwork(nn.Module):
     
     def forward(self, x):
         return self.network(x)
+
+class ResidualBlock(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.ReLU(),
+            nn.BatchNorm1d(dim),
+            nn.Linear(dim, dim)
+        )
+        
+    def forward(self, x):
+        return F.relu(x + self.layers(x))
 
 class LitSpot(L.LightningModule):
     def __init__(self, input_dim: int, output_dim: int, markers_path, classify, seq, robot_type) -> None:
@@ -57,7 +73,7 @@ class LitSpot(L.LightningModule):
         # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 5e-4
+        self.learning_rate = 6e-4
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
@@ -74,10 +90,14 @@ class LitSpot(L.LightningModule):
     def _get_device(self):
         return next(self.parameters()).device
 
+    def normalize_input(self, x):
+        return (x - x.mean(dim=0)) / (x.std(dim=0) + 1e-8)
+
     def training_step(self, batch, batch_idx):
         device = self._get_device()
         x, y = batch["joint_data"].float().to(device), batch["contact_label"].float().to(device)
-        
+
+
         y_hat = self(x) # shape batch_size by 3
 
         threshold = 0.1 * np.sqrt(self.seq)
@@ -118,6 +138,7 @@ class LitSpot(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         device = self._get_device()
         x, y = batch["joint_data"].float().to(device), batch["contact_label"].float().to(device)
+
 
         y_hat = self(x)
 
@@ -161,6 +182,7 @@ class LitSpot(L.LightningModule):
     def test_step(self, batch, batch_idx):
         device = self._get_device()
         x, y = batch["joint_data"].float().to(device), batch["contact_label"].float().to(device)
+
 
         y_hat = self(x)
 
@@ -255,8 +277,15 @@ class LitSpot(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-
-        return optimizer
+        # return optimizeroptimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=5, min_lr=1e-6
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+            "monitor": "val/loss"
+        }
     
     def predict(self, inputs):
         self.eval()  # Ensure the model is in evaluation mode
