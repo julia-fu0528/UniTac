@@ -34,13 +34,21 @@ class JointNetwork(nn.Module):
 
                 nn.Linear(64, 128),
                 nn.ReLU(),
-                ResidualBlock(128),
+                # ResidualBlock(128),
                 # nn.BatchNorm1d(128),
 
-                nn.Linear(128, 128),
+                nn.Linear(128, 256),
                 nn.ReLU(),
-                ResidualBlock(128),
-                ResidualBlock(128),
+                nn.Linear(256, 256),
+                nn.ReLU(),
+                nn.Linear(256, 256),
+                nn.ReLU(),
+                nn.Linear(256, 256),
+                nn.ReLU(),
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                # ResidualBlock(128),
+                # ResidualBlock(128),
                 # nn.Dropout(0.3),
                 # nn.BatchNorm1d(128),
 
@@ -73,7 +81,7 @@ class LitSpot(L.LightningModule):
         # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 6e-4
+        self.learning_rate = 9e-4
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
@@ -277,15 +285,16 @@ class LitSpot(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        # return optimizeroptimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=5, min_lr=1e-6
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": scheduler,
-            "monitor": "val/loss"
-        }
+        return optimizer
+        # optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimizer, mode='min', factor=0.5, patience=5, min_lr=1e-6
+        # )
+        # return {
+        #     "optimizer": optimizer,
+        #     "lr_scheduler": scheduler,
+        #     "monitor": "val/loss"
+        # }
     
     def predict(self, inputs):
         self.eval()  # Ensure the model is in evaluation mode

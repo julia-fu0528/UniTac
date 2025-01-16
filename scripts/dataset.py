@@ -47,7 +47,7 @@ class JointLabel:
         coordinates = {}
         for c in classes:
             if self.marker_positions.get(c) is None:
-                coordinates[str(self.num_classes)] = np.array([0, 0, 0])
+                coordinates[str(self.num_classes-1)] = np.array([0, 0, 0])
             else:
                 coordinates[c] = self.marker_positions.get(c)
 
@@ -95,11 +95,13 @@ class JointLabel:
                 class_name = torque_file.split(".")[0] # extract label from the file name
                 if class_name == 'no_contact':
                     if not self.classify:
-                        class_name = str(self.num_classes)
+                        class_name = str(self.num_classes-1)
                 if class_name in self.class_to_label.keys():
                     label = self.class_to_label[class_name]
                     if self.robot_type == 'franka':
                         state = np.load(torque_path, allow_pickle=True)
+                        if torque_file.split(".")[0] == 'no_contact':
+                            state = state[:60]
                     elif self.robot_type == 'spot':
                         torque, _, _, _ = load_joint_torques(torque_path)
                         joint_angle, _, _, _ = load_joint_positions(torque_path)
