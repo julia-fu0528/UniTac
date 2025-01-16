@@ -51,15 +51,6 @@ class JointNetwork(nn.Module):
                 nn.Dropout(0.3),
                 nn.BatchNorm1d(128),
 
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.BatchNorm1d(128),
-
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                nn.BatchNorm1d(128),
-
                 # nn.Linear(128, 128),
                 # nn.ReLU(),
                 # nn.BatchNorm1d(128),
@@ -90,7 +81,7 @@ class LitSpot(L.LightningModule):
         # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 13e-3
+        self.learning_rate = 13e-4
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
@@ -287,7 +278,7 @@ class LitSpot(L.LightningModule):
         # plt.show()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-5)
 
         return optimizer
     

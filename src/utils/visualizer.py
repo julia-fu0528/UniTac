@@ -30,7 +30,6 @@ class SpotVisualizer():
 
         # self.vis = vis
         if self.vis:
-            pass
             # for geometry in self.o3d_meshes_default:
                 # self.vis.add_geometry(geometry)
 
@@ -61,7 +60,8 @@ class SpotVisualizer():
                 pcd = o3d_mesh.sample_points_uniformly(number_of_points=90 * self.points_per_mesh)
             else:
                 pcd = o3d_mesh.sample_points_uniformly(number_of_points=self.points_per_mesh)
-            # self.vis.add_geometry(pcd)
+            if self.vis:
+                self.vis.add_geometry(pcd)
             self.point_clouds.append(pcd)
             o3d_meshes.append(o3d_mesh)
         return o3d_meshes
@@ -77,7 +77,8 @@ class SpotVisualizer():
             self.point_clouds[idx].transform(np.linalg.inv(self.prev_fks[idx]))
             self.point_clouds[idx].transform(current_transform)
 
-            # self.vis.update_geometry(self.point_clouds[idx])
+            if self.vis:
+                self.vis.update_geometry(self.point_clouds[idx])
             self.prev_fks[idx] = current_transform
 
     def visualize(self, cfg=None, odom=None):
@@ -98,15 +99,15 @@ class SpotVisualizer():
             # scene.export(saved_name)
         else:
             self.update_open3d_meshes(fk)
-            # if self.vis:
+            if self.vis:
 
-            #     for geometry in self.o3d_meshes_default:
-            #         self.vis.update_geometry(geometry)
-            #     self.vis.poll_events()
-            #     self.vis.update_renderer()
+                for geometry in self.o3d_meshes_default:
+                    self.vis.update_geometry(geometry)
+                self.vis.poll_events()
+                self.vis.update_renderer()
             # else:
-                # o3d.visualization.draw_geometries(self.o3d_meshes_default)
-                # o3d.visualization.draw_geometries(self.point_clouds)
+            #     o3d.visualization.draw_geometries(self.o3d_meshes_default)
+            #     o3d.visualization.draw_geometries(self.point_clouds)
     
     def marker_2vert(self, markers_pos, radius = 0.02):
         all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.point_clouds])

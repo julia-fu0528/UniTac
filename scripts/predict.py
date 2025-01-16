@@ -222,57 +222,58 @@ def main():
     robot = sdk.create_robot(options.hostname)
     bosdyn.client.util.authenticate(robot)
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-    # License 
-    license_client = robot.ensure_client(LicenseClient.default_service_name)
-    if not license_client.get_feature_enabled([ChoreographyClient.license_name
-                                              ])[ChoreographyClient.license_name]:
-        print('This robot is not licensed for choreography.')
-        sys.exit(1)
-     # Check that an estop is connected with the robot so that the robot commands can be executed.
-    assert not robot.is_estopped(), 'Robot is estopped. Please use an external E-Stop client, ' \
-                                    'such as the estop SDK example, to configure E-Stop.'
+    # # License 
+    # license_client = robot.ensure_client(LicenseClient.default_service_name)
+    # if not license_client.get_feature_enabled([ChoreographyClient.license_name
+    #                                           ])[ChoreographyClient.license_name]:
+    #     print('This robot is not licensed for choreography.')
+    #     sys.exit(1)
+    #  # Check that an estop is connected with the robot so that the robot commands can be executed.
+    # assert not robot.is_estopped(), 'Robot is estopped. Please use an external E-Stop client, ' \
+    #                                 'such as the estop SDK example, to configure E-Stop.'
 
-    # Get lease client and take control
-    lease_client = robot.ensure_client(LeaseClient.default_service_name)
-    sys.exit()
-    lease = lease_client.take()
-    lk = LeaseKeepAlive(lease_client)
+    # # Get lease client and take control
+    # lease_client = robot.ensure_client(LeaseClient.default_service_name)    lease = lease_client.take()
+    # lk = LeaseKeepAlive(lease_client)
 
-    # client_lease = lease_response
-    # lease_proto = lease_response.lease_proto
-    # lease_client.retain_lease(client_lease)
+    # # client_lease = lease_response
+    # # lease_proto = lease_response.lease_proto
+    # # lease_client.retain_lease(client_lease)
 
-    # Create choreography client
-    choreography_client = robot.ensure_client(ChoreographyClient.default_service_name)
-    available_moves = choreography_client.list_all_moves()
-    choreos = [] # step, trot, turn_2step, twerk, unstow
-    for choreo_file in choreo_files:
-        try:
-            choreos.append(load_choreography_sequence_from_txt_file(choreo_file))
-        except Exception as excep:
-            print(f'Failed to load choreography. Raised exception: {excep}')
-            return True
-    # upload the routine to the robot
-    for choreo in choreos:
-        try:
-            upload_response = choreography_client.upload_choreography(choreo,
-                                                                        non_strict_parsing=True)
-        except UnauthenticatedError as err:
-            print(
-                'The robot license must contain \'choreography\' permissions to upload and execute dances. ')
-            return True
-        except ResponseError as err:
-            error_msg = 'Choreography sequence upload failed. The following warnings were produced: '
-            for warn in err.response.warnings:
-                error_msg += warn
-            print(error_msg)
-            return True
+    # # Create choreography client
+    # choreography_client = robot.ensure_client(ChoreographyClient.default_service_name)
+    # available_moves = choreography_client.list_all_moves()
+    # choreos = [] # step, trot, turn_2step, twerk, unstow
+    # for choreo_file in choreo_files:
+    #     try:
+    #         choreos.append(load_choreography_sequence_from_txt_file(choreo_file))
+    #     except Exception as excep:
+    #         print(f'Failed to load choreography. Raised exception: {excep}')
+    #         return True
+    # # upload the routine to the robot
+    # for choreo in choreos:
+    #     try:
+    #         upload_response = choreography_client.upload_choreography(choreo,
+    #                                                                     non_strict_parsing=True)
+    #     except UnauthenticatedError as err:
+    #         print(
+    #             'The robot license must contain \'choreography\' permissions to upload and execute dances. ')
+    #         return True
+    #     except ResponseError as err:
+    #         error_msg = 'Choreography sequence upload failed. The following warnings were produced: '
+    #         for warn in err.response.warnings:
+    #             error_msg += warn
+    #         print(error_msg)
+    #         return True
     
-    sequences_on_robot = choreography_client.list_all_sequences()
-    known_sequences = '\n'.join(sequences_on_robot.known_sequences)
-    print(f'Sequence uploaded. All sequences on the robot:\n{known_sequences}')
+    # sequences_on_robot = choreography_client.list_all_sequences()
+    # known_sequences = '\n'.join(sequences_on_robot.known_sequences)
+    # print(f'Sequence uploaded. All sequences on the robot:\n{known_sequences}')
 
-    robot.power_on()
+    # robot.power_on()
+
+
+    ##############################
 
     # Sit the robot down and power off the robot.
     # robot.power_off()
@@ -309,6 +310,8 @@ def main():
     #     [0.1, 0.05, 0.09],
     #     [-0.12, -0.01, 0.09],
     # ]
+
+    ##############################
     simplified_to_full_name = {
         'fl.hx': 'front_left_hip_x',
         'fr.hx': 'front_right_hip_x',
@@ -457,23 +460,23 @@ def main():
             # if distance < threshold:
             # step, trot, turn_2step, twerk, unstow
             # left
-            if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-                exe_choreo(choreos[0], choreography_client) # step
-            # right
-            elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-                exe_choreo(choreos[1], choreography_client) # trot
-            # front
-            elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
-                exe_choreo(choreos[2], choreography_client) # turn_2step
-            # back
-            elif pos[0] < -0.45 and pos[2] < 0.1:
-            # and -0.14 < pos[1] < 0.14:
-                exe_choreo(choreos[3], choreography_client) # twerk
-            # top
-            elif pos[2] > 0.11:
-                exe_choreo(choreos[4], choreography_client) # unstow
-            else: 
-                continue
+            # if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
+            #     exe_choreo(choreos[0], choreography_client) # step
+            # # right
+            # elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
+            #     exe_choreo(choreos[1], choreography_client) # trot
+            # # front
+            # elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
+            #     exe_choreo(choreos[2], choreography_client) # turn_2step
+            # # back
+            # elif pos[0] < -0.45 and pos[2] < 0.1:
+            # # and -0.14 < pos[1] < 0.14:
+            #     exe_choreo(choreos[3], choreography_client) # twerk
+            # # top
+            # elif pos[2] > 0.11:
+            #     exe_choreo(choreos[4], choreography_client) # unstow
+            # else: 
+            #     continue
                 
     except KeyboardInterrupt:
         print("Exiting real-time inference...")

@@ -21,7 +21,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     else:
         tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}", name = "regression")
 
-    data_module = SpotDataModule(classify, seq, robot_type = robot_type, batch_size=64)
+    data_module = SpotDataModule(classify, seq, robot_type = robot_type, batch_size=256)
     if classify:
         output_dim = num_classes
     else:
@@ -38,7 +38,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
         # accelerator="gpu",
         accelerator=device,
         # accelerator="cpu",
-        max_epochs=20, 
+        max_epochs=10, 
         logger=[tb_logger],
         callbacks=[checkpoint_callback, early_stop_callback]
     )
