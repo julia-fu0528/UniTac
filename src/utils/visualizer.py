@@ -5,7 +5,7 @@ import open3d as o3d
 from collections import OrderedDict
 from scipy.spatial import cKDTree
 
-class SpotVisualizer():
+class RobotVisualizer():
     def __init__(self, robot_type, vis=None):
         self.vis = vis
         self.prev_fks = []
@@ -162,5 +162,5 @@ class SpotVisualizer():
 
 
 if __name__ == "__main__":
-    visualizer = SpotVisualizer()
+    visualizer = RobotVisualizer()
     visualizer.visualize()

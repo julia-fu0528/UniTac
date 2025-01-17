@@ -73,7 +73,7 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         return F.relu(x + self.layers(x))
 
-class LitSpot(L.LightningModule):
+class LitRobot(L.LightningModule):
     def __init__(self, input_dim: int, output_dim: int, markers_path, classify, seq, robot_type) -> None:
         super().__init__()
         self.model = JointNetwork(input_dim, output_dim, classify)

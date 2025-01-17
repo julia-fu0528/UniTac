@@ -21,7 +21,7 @@ from sensor_msgs.msg import JointState
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
 
-from src.utils.visualizer import SpotVisualizer
+from src.utils.visualizer import RobotVisualizer
 from src.utils.visualize_mesh import create_viewing_parameters, visualize_with_camera, look_at
 from src.utils.visualize_robot_state import find_closest_vertices, add_red_dots, compute_forward_kinematics, prepare_trimesh_fk, \
 convert_trimesh_to_open3d, create_red_markers, visualize_robot_with_markers, combine_meshes_o3d
@@ -358,7 +358,7 @@ def main():
         vis = o3d.visualization.Visualizer() 
         vis.create_window()
         # visualizer = SpotVisualizer(robot_type = "franka", vis=vis)
-        visualizer = SpotVisualizer(robot_type = "franka")
+        visualizer = RobotVisualizer(robot_type = "franka")
         original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
         visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
         

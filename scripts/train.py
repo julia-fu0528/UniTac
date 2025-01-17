@@ -8,7 +8,7 @@ from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
-from network import LitSpot
+from network import LitRobot
 from dataset import SpotDataModule
 
 def main(num_classes, markers_path, classify, seq, robot_type):
@@ -27,9 +27,9 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     else:
         output_dim = 3
     if robot_type == 'spot':
-        model = LitSpot(input_dim = 24 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
+        model = LitRobot(input_dim = 24 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
     elif robot_type == 'franka':
-        model = LitSpot(input_dim = 14 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
+        model = LitRobot(input_dim = 14 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
 
     checkpoint_callback = ModelCheckpoint(monitor="val/acc", mode="max", save_last=True, filename="best")
     early_stop_callback = EarlyStopping(monitor="val/acc", patience=100, mode="max")

@@ -11,90 +11,399 @@ from urdfpy import URDF
 import matplotlib.pyplot as plt
 
 import torch
-from network import LitSpot
+from network import LitRobot
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
 
-from src.utils.visualizer import SpotVisualizer
+from src.utils.visualizer import RobotVisualizer
 from src.utils.helpers import sample_points_from_mesh
 from src.utils.visualize_mesh import create_viewing_parameters, visualize_with_camera
 from src.utils.visualize_robot_state import update_meshes_with_fk, combine_meshes_o3d, create_red_markers, compute_forward_kinematics, find_closest_vertices, load_joint_torques, prepare_trimesh_fk, convert_trimesh_to_open3d
 
 
+class RealtimeRobot:
+    def __init__(self, markers_path, classify, ckpts_path, seq, device, robot_type):
+        self.markers_path = markers_path
+        self.classify = classify
+        self.ckpts_path = ckpts_path
+        self.seq = seq
+        self.device = device
+        self.robot_type = robot_type
+
+        # Load marker positions
+        self.markers_pos = np.loadtxt(markers_path, delimiter=",")
+        self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
+        print(f"Loaded marker positions: {len(marker_positions)}")
+
+        folder_path =  Path(__file__).parent
+        torque_dir = os.path.join(folder_path, options.data_dir)
+        subdirs = natsorted(os.listdir(torque_dir))
+        torque_files = [f for f in os.listdir(os.path.join(torque_dir, subdirs[0])) if f.endswith('.npy')]
+        torque_files = natsorted(torque_files)
+        # get all the file names
+        self.classes = [f.split('.')[0] for f in torque_files]
+        self.coordinates = {}
+        print(f"class: {self.classes}")
+        for c in self.classes:
+            if self.marker_positions.get(c) is None:
+                self.coordinates[str(self.markers_pos.shape[0])] = np.array([0, 0, 0])
+                print(f"key:{str(self.markers_pos.shape[0])}")
+            else:
+                self.coordinates[c] = marker_positions.get(c)
+
+        # Load the trained model
+        print("Loading the model...")
+        if classify:
+            output_dim = self.markers_pos.shape[0] + 1
+            print(f"Output dim: {output_dim}")
+        else:
+            output_dim = 3
+        self.model = self.load_from_checkpoint( input_dim=24 * seq, output_dim=output_dim * seq)
+        print("Model loaded successfully.")
 
 
-def preprocess_realtime_data(data, markers_path, normalize=True):
-    """
-    Preprocess the real-time data for inference.
-    """
-    markers_pos = np.loadtxt(markers_path, delimiter=",")
-    state_dict = data.kinematic_state.joint_states
-    torque_dict = []
-    for joint in state_dict:
-        joint_name = getattr(joint, 'name', None)
-        if joint_name is not None:
-            if not joint_name.startswith("arm"):
-                torque_dict.append({
-                    'name': joint_name,
-                    'position': joint.position.value,
-                    'load': joint.load.value  
-                })
-    num_joints = len(torque_dict)
-    torque_data = np.full((1, num_joints), np.nan, dtype=float)
-    pos_data = np.full((1, num_joints), np.nan, dtype=float)
-    joint_names = []
-    for j, joint in enumerate(torque_dict):
-            torque_data[0, j]  = joint['load']
-            pos_data[0, j] = joint['position']
-            joint_names.append(joint['name'])
-    data = np.hstack((torque_data, pos_data))
-    if normalize:
-        data = 2 * ((data - data.min()) / (data.max() - data.min())) - 1
-    data_processed = np.array(data)
+        # visualizer
+        vis = o3d.visualization.Visualizer() 
+        vis.create_window()
+        # self.visualizer = RobotVisualizer(robot_type=robot_type, vis=vis)
+        self.visualizer = RobotVisualizer(robot_type=robot_type)
+    
+    def load_from_checkpoint(self, input_dim, output_dim):
+        """
+        Load a model from a checkpoint file.
+        """
+        if device == "gpu":
+            device = "cuda"
+        checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
+        model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
+                        classify=self.classify, seq = self.seq, robot_type=self.robot_type)
+        model.load_state_dict(checkpoint['state_dict'])
+        model.to(self.device)
+        model.eval()
+        return model
+    
+    def create_buffers(self, seq_win, radius=0.04, alpha=0.95, sliding_win=3):
+        seq_win = self.seq
+        if self.classify:
+            buffer = np.zeros((sliding_win, len(self.classes)))
+        else:
+            buffer = np.zeros((sliding_win, 3))
+        if self.robot_type == 'spot':
+            data_buffer = np.zeros((seq_win, 24))
+        elif self.robot_type == 'franka':
+            data_buffer = np.zeros((seq_win, 14))
+        weights = np.power((1 - alpha), np.arange(sliding_win))
+        weights = alpha * weights
+        # normalize - in the regression case, weighted average
+        if not self.classify:
+            weights = weights / np.sum(weights)
 
-    return data_processed
+        original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
+        # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
+    
+        # Add the combined mesh to the visualizer
+        all_points = np.concatenate([np.asarray(pcd.points) for pcd in visualizer.point_clouds])
+        kdtree = cKDTree(all_points)
+
+        point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in visualizer.point_clouds]
+        point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
+
+        self.data_buffer = data_buffer
+        self.buffer = buffer
+        self.weights = weights
+        return self.data_buffer, self.buffer, self.weights
+    
+    def predict(self):
+        # Real time prediction
+        self.buffer = np.roll(self.buffer, 1, axis=0) 
+        # processed_data = data_buffer.flatten()
+        processed_data_tensor = torch.tensor(self.data_buffer.flatten(), dtype=torch.float32).to(model.device).reshape(1, -1)
+        with torch.no_grad():
+            if device == "gpu":
+                self.buffer[0:self.seq] = self.model.predict(processed_data_tensor).cpu().numpy().reshape(self.seq, -1)
+            else:
+                result = self.model.predict(processed_data_tensor).numpy()
+                self.buffer[0:self.seq] = self.model.predict(processed_data_tensor).numpy().reshape(self.seq, -1)
+        predictions = np.dot(self.weights, self.buffer)
+
+        if self.classify:
+            predictions = predictions.reshape(-1, len(self.classes)+1)
+            predicted_class_index = np.argmax(predictions)
+            confidence = np.max(predictions)
+            predicted_class = self.classes[predicted_class_index]
+            print(f"Prediction: {predicted_class}, Confidence: {confidence:.2f}")
+            if predicted_class == "no_contact":
+                pos = np.array([0, 0, 0])
+            else:
+                pos = self.marker_positions.get(predicted_class)
+        else:
+            pos = predictions
+            # Compute the weighted variance
+            weighted_mean = predictions
+            differences = self.buffer - weighted_mean  # Difference between each row and the mean
+            squared_differences = differences**2
+            weighted_variance = np.dot(self.weights, np.mean(squared_differences, axis=1))  # Average squared differences
+            confidence = 1 / (1 + np.sqrt(weighted_variance))  # Inverse relation: lower variance → higher confidence
+
+        return pos
+
+
+    def vis_prediction(self, pos, threshold=0.1):
+        for pcd, orig_color in zip(self.visualizer.point_clouds, original_colors):
+            pcd.colors = o3d.utility.Vector3dVector(orig_color)
+
+        print(f"pos: {pos}")
+        cur_marker_pcd_indices, cur_marker_local_indices = visualizer.pos_2pcd(pos)
+        for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
+            colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
+            colors[local_idx] = [1, 0, 0]
+            visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+
+        vis.poll_events()
+        vis.update_renderer()
+       
+    
+
+
+class RealtimeSpot(RealtimeRobot):
+    def __init__(self, markers_path, classify, ckpts_path, seq, device, hostname, choreo, choreography_filepaths):
+        # imports
+        from bosdyn.client.robot_state import RobotStateClient
+        from bosdyn.client import create_standard_sdk
+        import bosdyn.client.util
+
+        from bosdyn.api.spot import choreography_sequence_pb2
+        from bosdyn.client import create_standard_sdk
+        from bosdyn.choreography.client.choreography import (ChoreographyClient,
+                                                            load_choreography_sequence_from_txt_file)
+        from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+        from bosdyn.api import lease_pb2
+        from google.protobuf.timestamp_pb2 import Timestamp
+        from bosdyn.api import header_pb2
+        from bosdyn.client import ResponseError, RpcError, create_standard_sdk
+        from bosdyn.client.exceptions import UnauthenticatedError
+        from bosdyn.client.license import LicenseClient
+        
+        super().__init__(markers_path, classify, ckpts_path, seq, device, robot_type="spot")
+        self.hostname = hostname
+        self.choreo = choreo
+        self.choreo_files = choreography_filepaths
+        self.choreos = []
+        self.choreography_client = None
+
+        self.simplified_to_full_name = {'fl.hx': 'front_left_hip_x', 'fr.hx': 'front_right_hip_x',
+            'hl.hx': 'rear_left_hip_x', 'hr.hx': 'rear_right_hip_x', 'fl.hy': 'front_left_hip_y',
+            'fr.hy': 'front_right_hip_y', 'hl.hy': 'rear_left_hip_y', 'hr.hy': 'rear_right_hip_y',
+            'fl.kn': 'front_left_knee', 'fr.kn': 'front_right_knee', 'hl.kn': 'rear_left_knee',
+            'hr.kn': 'rear_right_knee', 'arm0.sh0': 'arm_sh0', 'arm0.sh1': 'arm_sh1',
+            'arm0.el0': 'arm_el0', 'arm0.el1': 'arm_el1', 'arm0.wr0': 'arm_wr0', 'arm0.wr1': 'arm_wr1',
+            'arm0.f1x': 'arm_f1x', 'arm0.hr0': 'arm_hr0'}
+
+        # Initialize robot and client
+        sdk = create_standard_sdk('RobotStateClient')
+        sdk.register_service_client(ChoreographyClient)
+
+
+        robot = sdk.create_robot(hostname)
+        bosdyn.client.util.authenticate(robot)
+        self.robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
+        
+        if self.choreo:
+            # License 
+            license_client = self.init_license(robot)
+            # Check that an estop is connected with the robot so that the robot commands can be executed.
+            assert not robot.is_estopped(), 'Robot is estopped. Please use an external E-Stop client, ' \
+                                            'such as the estop SDK example, to configure E-Stop.'
+
+            # Get lease client and take control
+            lease, lk = self.init_lease(robot)
+            self.init_choreo(robot)
+
+        
+
+    def init_license(self, robot):
+        license_client = robot.ensure_client(LicenseClient.default_service_name)
+        if not license_client.get_feature_enabled([ChoreographyClient.license_name
+                                                ])[ChoreographyClient.license_name]:
+            print('This robot is not licensed for choreography.')
+            sys.exit(1)
+        return license_client
+
+    def init_lease(self, robot):
+        lease_client = robot.ensure_client(LeaseClient.default_service_name)    
+        lease = lease_client.take()
+        lk = LeaseKeepAlive(lease_client)
+        return lease, lk
+    
+    def init_choreo(self, robot):
+        # Create choreography client
+        choreography_client = robot.ensure_client(ChoreographyClient.default_service_name)
+        available_moves = choreography_client.list_all_moves()
+        for choreo_file in self.choreo_files:
+            try: # step, trot, turn_2step, twerk, unstow
+                self.choreos.append(load_choreography_sequence_from_txt_file(choreo_file))
+            except Exception as excep:
+                print(f'Failed to load choreography. Raised exception: {excep}')
+                return True
+        # upload the routine to the robot
+        for choreo in self.choreos:
+            try:
+                upload_response = choreography_client.upload_choreography(choreo,
+                                                                            non_strict_parsing=True)
+            except UnauthenticatedError as err:
+                print(
+                    'The robot license must contain \'choreography\' permissions to upload and execute dances. ')
+                return True
+            except ResponseError as err:
+                error_msg = 'Choreography sequence upload failed. The following warnings were produced: '
+                for warn in err.response.warnings:
+                    error_msg += warn
+                print(error_msg)
+                return True
+        
+        sequences_on_robot = choreography_client.list_all_sequences()
+        self.choreography_client = choreography_client
+        known_sequences = '\n'.join(sequences_on_robot.known_sequences)
+        print(f'Sequence uploaded. All sequences on the robot:\n{known_sequences}')
+
+        robot.power_on()
+    
+    def update_vis(self):
+        self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
+        state = self.robot_state_client.get_robot_state()
+
+        # Preprocess the data for inference
+        processed_data = self.preprocess_realtime_data(state, normalize=True)
+        self.data_buffer[0] = processed_data
+        print(f"Processed data shape: {processed_data.shape}")
+        joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
+        joint_states = state.kinematic_state.joint_states
+        for joint_info in joint_states:
+            joint = visualizer.robot.joint_map[simplified_to_full_name.get(joint_info.name)]
+            if joint:
+                joint_positions[simplified_to_full_name.get(joint_info.name)] = joint_info.position.value
+            else:
+                print(f"Joint {joint_info['name']} not found in URDF.")
+        self.visualizer.visualize(cfg=joint_positions)
+
+
+        
+
+    def preprocess_realtime_data(self, data, normalize=True):
+        """
+        Preprocess the real-time data for inference.
+        """
+        state_dict = data.kinematic_state.joint_states
+        torque_dict = []
+        for joint in state_dict:
+            joint_name = getattr(joint, 'name', None)
+            if joint_name is not None:
+                if not joint_name.startswith("arm"):
+                    torque_dict.append({
+                        'name': joint_name,
+                        'position': joint.position.value,
+                        'load': joint.load.value  
+                    })
+        num_joints = len(torque_dict)
+        torque_data = np.full((1, num_joints), np.nan, dtype=float)
+        pos_data = np.full((1, num_joints), np.nan, dtype=float)
+        joint_names = []
+        for j, joint in enumerate(torque_dict):
+                torque_data[0, j]  = joint['load']
+                pos_data[0, j] = joint['position']
+                joint_names.append(joint['name'])
+        data = np.hstack((torque_data, pos_data))
+        if normalize:
+            data = 2 * ((data - data.min()) / (data.max() - data.min())) - 1
+        data_processed = np.array(data)
+
+        return data_processed
+
+    def exe_choreo(self, choreography):
+        routine_name = choreography.name
+        delayed_start = 2.0
+        client_start_time = time.time() + delayed_start
+        # begins at the very beginning.
+        start_slice = 0
+        # Issue the command to the robot's choreography service.
+        self.choreography_client.execute_choreography(choreography_name=routine_name,
+                                                client_start_time=client_start_time,
+                                                choreography_starting_slice=start_slice)
+        # Estimate how long the choreographed sequence will take.
+        total_choreography_slices = 0
+        for move in choreography.moves:
+            # Calculate the slice when the move will end
+            end_slice = move.start_slice + move.requested_slices
+
+            #  Store the highest end_slice value of all the moves.
+            if total_choreography_slices < end_slice:
+                total_choreography_slices = end_slice
+        estimated_time_seconds = delayed_start + total_choreography_slices / choreography.slices_per_minute * 60.0
+
+        # Sleep for the duration of the dance, plus an extra second.
+        time.sleep(estimated_time_seconds + 1.0)
+
+    def respond(self, pos, threshold=1):
+        distance = np.linalg.norm(pos - self.coordinates.get(str(len(self.markers_pos))))
+        print(f"pos: {pos}, distance: {distance}")
+        # if distance < threshold:
+        # # step, trot, turn_2step, twerk, unstow
+        # left
+        if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
+            self.exe_choreo(choreos[0]) # step
+        # right
+        elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
+            self.exe_choreo(choreos[1]) # trot
+        # front
+        elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
+            self.exe_choreo(choreos[2]) # turn_2step
+        # back
+        elif pos[0] < -0.45 and pos[2] < 0.1:
+        # and -0.14 < pos[1] < 0.14:
+            self.exe_choreo(choreos[3]) # twerk
+        # top
+        elif pos[2] > 0.11:
+            self.exe_choreo(choreos[4]) # unstow
+        else: 
+            continue
 
 
 
 
 
-def load_from_checkpoint(checkpoint_path, input_dim, output_dim, markers_path, device, classify, seq, robot_type):
-    """
-    Load a model from a checkpoint file.
-    """
-    if device == "gpu":
-        device = "cuda"
-    checkpoint = torch.load(checkpoint_path, map_location=torch.device(device))
-    model = LitSpot(input_dim=input_dim, output_dim=output_dim, markers_path=markers_path, classify=classify, seq = seq, robot_type=robot_type)
-    model.load_state_dict(checkpoint['state_dict'])
-    model.to(device)
-    model.eval()
-    return model
 
-def exe_choreo(choreography, choreography_client):
-    routine_name = choreography.name
-    delayed_start = 2.0
-    client_start_time = time.time() + delayed_start
-    # begins at the very beginning.
-    start_slice = 0
-    # Issue the command to the robot's choreography service.
-    choreography_client.execute_choreography(choreography_name=routine_name,
-                                             client_start_time=client_start_time,
-                                             choreography_starting_slice=start_slice)
-    # Estimate how long the choreographed sequence will take.
-    total_choreography_slices = 0
-    for move in choreography.moves:
-        # Calculate the slice when the move will end
-        end_slice = move.start_slice + move.requested_slices
+class RealtimeFranka(RealtimeRobot):
+    def __init__(self, markers_path, classify, ckpts_path, seq, device, robot_type):
+        import rospy
+        from rospy import Subscriber, Rate
+        from sensor_msgs.msg import JointState
 
-        #  Store the highest end_slice value of all the moves.
-        if total_choreography_slices < end_slice:
-            total_choreography_slices = end_slice
-    estimated_time_seconds = delayed_start + total_choreography_slices / choreography.slices_per_minute * 60.0
+        super().__init__(markers_path, classify, ckpts_path, seq, device, robot_type="franka")
+        rospy.init_node("save_franka_state")
+        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        self.save_rate = Rate(30)
+        self.current_state = None
+    
+    def joint_callback(self, state: JointState):
+        self.current_state = state
 
-    # Sleep for the duration of the dance, plus an extra second.
-    time.sleep(estimated_time_seconds + 1.0)
+
+
+    def update_vis(self):
+        self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
+        joint_position = self.current_state.position
+        joint_torque = self.current_state.effort
+        state = np.hstack([joint_torque[:7], joint_position[:7]], )
+        self.save_rate.sleep()
+
+        self.data_buffer[0] = state
+        print(f"Processed data shape: {state.shape}")
+        cfg = {joint: joint_position[idx] for idx, joint in enumerate(self.visualizer.robot.actuated_joint_names)}
+        self.visualizer.visualize(cfg=cfg)
+
+
+
 
 def main():
     import argparse
@@ -114,333 +423,41 @@ def main():
                     help='List of filepath(s) to load the choreographed sequence text files from.')
 
 
-
     options = parser.parse_args()
     classify = options.classify
     device  = options.device
     seq = options.seq
     robot_type = options.robot_type
+    markers_path = options.markers_path
 
     if robot_type == 'spot':    
-        # imports
-        from bosdyn.client.robot_state import RobotStateClient
-        from bosdyn.client import create_standard_sdk
-        import bosdyn.client.util
-
-        from bosdyn.api.spot import choreography_sequence_pb2
-        from bosdyn.client import create_standard_sdk
-        from bosdyn.choreography.client.choreography import (ChoreographyClient,
-                                                            load_choreography_sequence_from_txt_file)
-        from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-        from bosdyn.api import lease_pb2
-        from google.protobuf.timestamp_pb2 import Timestamp
-        from bosdyn.api import header_pb2
-        from bosdyn.client import ResponseError, RpcError, create_standard_sdk
-        from bosdyn.client.exceptions import UnauthenticatedError
-        from bosdyn.client.license import LicenseClient
         # choreography
         try options.choreography_filepaths:
             choreo_files = options.choreography_filepaths
         except:
             print("No choreography files provided.")
             sys.exit(1)
+        realtime_robot = RealtimeSpot(markers_path, classify, options.ckpts_path, seq, device, options.hostname, options.choreo, choreo_files)
+    elif robot_type == 'franka':
+        realtime_robot = RealtimeRobot(markers_path, classify, options.ckpts_path, seq, device, robot_type)
 
-
-     # Load marker positions
-    markers_path = options.markers_path
-    markers_pos = np.loadtxt(markers_path, delimiter=",")
-
-     # Load the trained model
-    print("Loading the model...")
-    # model = load_model(options.model_path)
-    if classify:
-        output_dim = markers_pos.shape[0] + 1
-        print(f"Output dim: {output_dim}")
-    else:
-        output_dim = 3
-    model = load_from_checkpoint(options.ckpts_path, input_dim=24 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, device=device, seq=seq, robot_type=robot_type)
-    print("Model loaded successfully.")
-
-    # Initialize robot and client
-    sdk = create_standard_sdk('RobotStateClient')
-    sdk.register_service_client(ChoreographyClient)
-
-    robot = sdk.create_robot(options.hostname)
-    bosdyn.client.util.authenticate(robot)
-    robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-
-    # License 
-    license_client = robot.ensure_client(LicenseClient.default_service_name)
-    if not license_client.get_feature_enabled([ChoreographyClient.license_name
-                                              ])[ChoreographyClient.license_name]:
-        print('This robot is not licensed for choreography.')
-        sys.exit(1)
-     # Check that an estop is connected with the robot so that the robot commands can be executed.
-    assert not robot.is_estopped(), 'Robot is estopped. Please use an external E-Stop client, ' \
-                                    'such as the estop SDK example, to configure E-Stop.'
-
-    # Get lease client and take control
-    lease_client = robot.ensure_client(LeaseClient.default_service_name)    lease = lease_client.take()
-    lk = LeaseKeepAlive(lease_client)
-
-    # client_lease = lease_response
-    # lease_proto = lease_response.lease_proto
-    # lease_client.retain_lease(client_lease)
-
-    # Create choreography client
-    choreography_client = robot.ensure_client(ChoreographyClient.default_service_name)
-    available_moves = choreography_client.list_all_moves()
-    choreos = [] # step, trot, turn_2step, twerk, unstow
-    for choreo_file in choreo_files:
-        try:
-            choreos.append(load_choreography_sequence_from_txt_file(choreo_file))
-        except Exception as excep:
-            print(f'Failed to load choreography. Raised exception: {excep}')
-            return True
-    # upload the routine to the robot
-    for choreo in choreos:
-        try:
-            upload_response = choreography_client.upload_choreography(choreo,
-                                                                        non_strict_parsing=True)
-        except UnauthenticatedError as err:
-            print(
-                'The robot license must contain \'choreography\' permissions to upload and execute dances. ')
-            return True
-        except ResponseError as err:
-            error_msg = 'Choreography sequence upload failed. The following warnings were produced: '
-            for warn in err.response.warnings:
-                error_msg += warn
-            print(error_msg)
-            return True
-    
-    sequences_on_robot = choreography_client.list_all_sequences()
-    known_sequences = '\n'.join(sequences_on_robot.known_sequences)
-    print(f'Sequence uploaded. All sequences on the robot:\n{known_sequences}')
-
-    robot.power_on()
-
-
-    ##############################
-
-    # Sit the robot down and power off the robot.
-    # robot.power_off()
-    # return True
-    # sys.exit()
-    # sequence = choreography_sequence_pb2.ChoreographySequence()
-    # sequence.name = "my_dance"
-    # sequence.slices_per_minute = 60
-
-    # move = sequence.moves.add()
-    # move.type = "trot" 
-    # move.start_slice = 0
-    # move.requested_slices = 5
-    # Upload the sequence
-    # upload_response = choreography_client.upload_choreography(sequence, non_strict_parsing=True)
-    # print("Upload response:", upload_response) 
-    # available_moves = choreography_client.list_all_moves()
-    # print("Available moves:", available_moves) 
-    # sys.exit() 
-    # markers_pos = [   
-    #     # front
-    #     [0.45, 0.06, -0.035],
-    #     [0.45, -0.07, -0.035],
-    #     # back
-    #     [-0.45, 0.05, 0.05],
-    #     [-0.45, -0.05, 0.05],
-    #     # left
-    #     [0.13, 0.14, 0.01],
-    #     [-0.13, 0.14, -0.01],
-    #     # right
-    #     [0.1, -0.15, -0.01],
-    #     [-0.13, -0.14, -0.01],
-    #     # top
-    #     [0.1, 0.05, 0.09],
-    #     [-0.12, -0.01, 0.09],
-    # ]
-
-    ##############################
-    simplified_to_full_name = {
-        'fl.hx': 'front_left_hip_x',
-        'fr.hx': 'front_right_hip_x',
-        'hl.hx': 'rear_left_hip_x',
-        'hr.hx': 'rear_right_hip_x',
-        'fl.hy': 'front_left_hip_y',
-        'fr.hy': 'front_right_hip_y',
-        'hl.hy': 'rear_left_hip_y',
-        'hr.hy': 'rear_right_hip_y',
-        'fl.kn': 'front_left_knee',
-        'fr.kn': 'front_right_knee',
-        'hl.kn': 'rear_left_knee',
-        'hr.kn': 'rear_right_knee',
-        'arm0.sh0': 'arm_sh0',
-        'arm0.sh1': 'arm_sh1',
-        'arm0.el0': 'arm_el0',
-        'arm0.el1': 'arm_el1',
-        'arm0.wr0': 'arm_wr0',
-        'arm0.wr1': 'arm_wr1',
-        'arm0.f1x': 'arm_f1x',
-        'arm0.hr0': 'arm_hr0',
-    }
-    
-    # markers_pos, pos_indices = find_closest_vertices(robot_meshes[0], markers_pos)
-    marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
-    print(f"Loaded marker positions: {len(marker_positions)}")
-
-
-    folder_path =  Path(__file__).parent
-    torque_dir = os.path.join(folder_path, options.data_dir)
-    subdirs = natsorted(os.listdir(torque_dir))
-    torque_files = [f for f in os.listdir(os.path.join(torque_dir, subdirs[0])) if f.endswith('.npy')]
-    torque_files = natsorted(torque_files)
-    # get all the file names
-    classes = [f.split('.')[0] for f in torque_files]
-    coordinates = {}
-    print(f"class: {classes}")
-    for c in classes:
-        if marker_positions.get(c) is None:
-            coordinates['100'] = np.array([0, 0, 0])
-            # coordinates.append(np.array([0, 0, 0]))
-        else:
-            # coordinates.append(marker_positions.get(c))
-            coordinates[c] = marker_positions.get(c)
-
-   
-    vis = o3d.visualization.Visualizer() 
-    vis.create_window()
-    visualizer = SpotVisualizer(robot_type=robot_type, vis=vis)
-
-    radius = 0.04
-    alpha = 0.95
-    sliding_win = 3
-    seq_win = seq
-    # sliding_win = 5
-    if classify:
-        buffer = np.zeros((sliding_win, 101))
-    else:
-        buffer = np.zeros((sliding_win, 3))
-    data_buffer = np.zeros((seq_win, 24))
-    weights = np.power((1 - alpha), np.arange(sliding_win))
-    weights = alpha * weights
-    # normalize - in the regression case, weighted average
-    if not classify:
-        weights = weights / np.sum(weights)
-
-    original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
-    # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
-   
-    # Add the combined mesh to the visualizer
-    all_points = np.concatenate([np.asarray(pcd.points) for pcd in visualizer.point_clouds])
-    kdtree = cKDTree(all_points)
-
-    point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in visualizer.point_clouds]
-    point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
-
+    # Create buffers
+    data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.95, sliding_win=3)
 
     try:
         while True:
-            start = time.time()
-            data_buffer = np.roll(data_buffer, 1, axis=0) 
-            state = robot_state_client.get_robot_state()
-
-            # Preprocess the data for inference
-            processed_data = preprocess_realtime_data(state, markers_path)
-            data_buffer[0] = processed_data
-            print(f"Processed data shape: {processed_data.shape}")
-            joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
-            joint_states = state.kinematic_state.joint_states
-            for joint_info in joint_states:
-                joint = visualizer.robot.joint_map[simplified_to_full_name.get(joint_info.name)]
-                if joint:
-                    joint_positions[simplified_to_full_name.get(joint_info.name)] = joint_info.position.value
-                else:
-                    print(f"Joint {joint_info['name']} not found in URDF.")
-            visualizer.visualize(cfg=joint_positions)
-
-            # Real time prediction
-            buffer = np.roll(buffer, 1, axis=0) 
-            # processed_data = data_buffer.flatten()
-            processed_data_tensor = torch.tensor(data_buffer.flatten(), dtype=torch.float32).to(model.device).reshape(1, -1)
-            with torch.no_grad():
-                if device == "gpu":
-                    buffer[0:seq] = model.predict(processed_data_tensor).cpu().numpy().reshape(seq, -1)
-                else:
-                    result = model.predict(processed_data_tensor).numpy()
-                    buffer[0:seq] = model.predict(processed_data_tensor).numpy().reshape(seq, -1)
-            predictions = np.dot(weights, buffer)
-            if classify:
-                    predictions = predictions.reshape(-1, 101)
-                    predicted_class_index = np.argmax(predictions)
-                    confidence = np.max(predictions)
-                    predicted_class = classes[predicted_class_index]
-                    print(f"Prediction: {predicted_class}, Confidence: {confidence:.2f}")
-                    if predicted_class == "no_contact":
-                        pos = np.array([0, 0, 0])
-                    else:
-                        pos = marker_positions.get(predicted_class)
-            else:
-                pos = predictions
-                # Compute the weighted variance
-                weighted_mean = predictions
-                differences = buffer - weighted_mean  # Difference between each row and the mean
-                squared_differences = differences**2
-                weighted_variance = np.dot(weights, np.mean(squared_differences, axis=1))  # Average squared differences
-                confidence = 1 / (1 + np.sqrt(weighted_variance))  # Inverse relation: lower variance → higher confidence
-
-            for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
-                pcd.colors = o3d.utility.Vector3dVector(orig_color)
-
-            print(f"pos: {pos}")
-            cur_marker_pcd_indices, cur_marker_local_indices = visualizer.pos_2pcd(pos)
-            for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
-                colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
-                colors[local_idx] = [1, 0, 0]
-                visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
-
-            vis.poll_events()
-            vis.update_renderer()
-            threshold = 1
-            # distance = np.linalg.norm(pos - coordinates.get("100"))
-            # print(f"pos: {pos}, distance: {distance}")
-            # if distance < threshold:
-            # step, trot, turn_2step, twerk, unstow
-            # left
-            # if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-            #     exe_choreo(choreos[0], choreography_client) # step
-            # # right
-            # elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-            #     exe_choreo(choreos[1], choreography_client) # trot
-            # # front
-            # elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
-            #     exe_choreo(choreos[2], choreography_client) # turn_2step
-            # # back
-            # elif pos[0] < -0.45 and pos[2] < 0.1:
-            # # and -0.14 < pos[1] < 0.14:
-            #     exe_choreo(choreos[3], choreography_client) # twerk
-            # # top
-            # elif pos[2] > 0.11:
-            #     exe_choreo(choreos[4], choreography_client) # unstow
-            # else: 
-            #     continue
-                
+            # Real-time prediction
+            realtime_robot.update_vis()
+            pos = realtime_robot.predict()
+            # Visualize the predictions
+            realtime_robot.vis_prediction(pos)
+            if robot_type == 'spot' and options.choreo:
+                # Respond to the predictions
+                realtime_robot.respond(pos)
     except KeyboardInterrupt:
         print("Exiting real-time inference...")
-    # except (KeyboardInterrupt, Exception) as e:
-    #     print("Stopping...")
-    #     # Try to stop any ongoing choreography
-    #     try:
-    #         choreography_client.stop_choreography(lease=lease_proto)
-    #     except Exception as e:
-    #         print(f"Error stopping choreography: {e}")
     except Exception as e:
         print(f"An error occurred: {e}")
-    # finally:
-    #     # Always clean up lease management
-    #     if 'lease_client' in locals() and 'lease' in locals():
-    #         print("Returning lease...")
-    #         lease_client.return_lease(client_lease)
-    #     if 'lease_keep_alive' in locals():
-    #         lease_keep_alive.shutdown()
-    #     print("Lease returned successfully")
 
 
 if __name__ == "__main__":
