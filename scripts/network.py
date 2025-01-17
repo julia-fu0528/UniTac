@@ -35,7 +35,7 @@ class JointNetwork(nn.Module):
                 nn.Linear(64, 128),
                 nn.ReLU(),
                 # ResidualBlock(128),
-                nn.BatchNorm1d(128),
+                # nn.BatchNorm1d(128),
 
                 nn.Linear(128, 256),
                 nn.ReLU(),
