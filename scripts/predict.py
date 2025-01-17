@@ -109,7 +109,7 @@ class RealtimeRobot:
         # Real time prediction
         self.buffer = np.roll(self.buffer, 1, axis=0) 
         # processed_data = data_buffer.flatten()
-        processed_data_tensor = torch.tensor(self.data_buffer.flatten(), dtype=torch.float32).to(model.device).reshape(1, -1)
+        processed_data_tensor = torch.tensor(self.data_buffer.flatten(), dtype=torch.float32).to(self.model.device).reshape(1, -1)
         with torch.no_grad():
             if self.device == "gpu":
                 self.buffer[0:self.seq] = self.model.predict(processed_data_tensor).cpu().numpy().reshape(self.seq, -1)
@@ -279,12 +279,12 @@ class RealtimeSpot(RealtimeRobot):
         processed_data = self.preprocess_realtime_data(state, normalize=True)
         self.data_buffer[0] = processed_data
         print(f"Processed data shape: {processed_data.shape}")
-        joint_positions = {joint.name: 0.0 for joint in visualizer.robot.joints}
+        joint_positions = {joint.name: 0.0 for joint in self.visualizer.robot.joints}
         joint_states = state.kinematic_state.joint_states
         for joint_info in joint_states:
-            joint = visualizer.robot.joint_map[simplified_to_full_name.get(joint_info.name)]
+            joint = self.visualizer.robot.joint_map[self.simplified_to_full_name.get(joint_info.name)]
             if joint:
-                joint_positions[simplified_to_full_name.get(joint_info.name)] = joint_info.position.value
+                joint_positions[self.simplified_to_full_name.get(joint_info.name)] = joint_info.position.value
             else:
                 print(f"Joint {joint_info['name']} not found in URDF.")
         self.visualizer.visualize(cfg=joint_positions)
