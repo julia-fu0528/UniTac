@@ -294,7 +294,7 @@ class Franka(Robot):
                 visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
             o3d.visualization.draw_geometries(visualizer.point_clouds, zoom=0.7, front = normal, lookat=pos, up = [0, 0, 1])
 
-            print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
+            print(f"YOU CAN TOUCH THE ROBOT NOW. Data collection will start right away, please make sure you are touching the Robot.\n")
         else:
             o3d.visualization.draw_geometries(visualizer.point_clouds, zoom = 0.7, front = [1, 0, 0], lookat=[0, 0, 0.5], up = [0, 1, 0])
             print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
