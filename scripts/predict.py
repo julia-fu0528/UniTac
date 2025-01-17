@@ -376,7 +376,7 @@ class RealtimeSpot(RealtimeRobot):
 
 
 class RealtimeFranka(RealtimeRobot):
-    def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, robot_type):
+    def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device):
         import rospy
         from rospy import Subscriber, Rate
         from sensor_msgs.msg import JointState
@@ -442,7 +442,7 @@ def main():
             sys.exit(1)
         realtime_robot = RealtimeSpot(markers_path, data_dir, classify, options.ckpts_path, seq, device, options.hostname, options.choreo, choreo_files)
     elif robot_type == 'franka':
-        realtime_robot = RealtimeFranka(markers_path, data_dir, classify, options.ckpts_path, seq, device, robot_type)
+        realtime_robot = RealtimeFranka(markers_path, data_dir, classify, options.ckpts_path, seq, device)
 
     # Create buffers
     data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.95, sliding_win=3)
