@@ -59,22 +59,22 @@ class RealtimeRobot:
             print(f"Output dim: {output_dim}")
         else:
             output_dim = 3
-        self.model = self.load_from_checkpoint( input_dim=24 * seq, output_dim=output_dim * seq)
+        self.model = self.load_from_checkpoint( input_dim=14 * seq, output_dim=output_dim * seq)
         print("Model loaded successfully.")
 
 
         # visualizer
         vis = o3d.visualization.Visualizer() 
         vis.create_window()
-        # self.visualizer = RobotVisualizer(robot_type=robot_type, vis=vis)
-        self.visualizer = RobotVisualizer(robot_type=robot_type)
+        self.visualizer = RobotVisualizer(robot_type=robot_type, vis=vis)
+        # self.visualizer = RobotVisualizer(robot_type=robot_type)
     
     def load_from_checkpoint(self, input_dim, output_dim):
         """
         Load a model from a checkpoint file.
         """
-        if device == "gpu":
-            device = "cuda"
+        if self.device == "gpu":
+            self.device = "cuda"
         checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
         model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
                         classify=self.classify, seq = self.seq, robot_type=self.robot_type)
@@ -387,12 +387,12 @@ class RealtimeFranka(RealtimeRobot):
         self.save_rate = Rate(30)
         self.current_state = None
     
-    def joint_callback(self, state: JointState):
+    def joint_callback(self, state):
         self.current_state = state
 
-
-
     def update_vis(self):
+        if self.current_state is None:
+            return
         self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
         joint_position = self.current_state.position
         joint_torque = self.current_state.effort
