@@ -9,9 +9,6 @@ from scipy.spatial import cKDTree
 from natsort import natsorted
 from urdfpy import URDF
 import matplotlib.pyplot as plt
-# import tensorflow as tf
-# from tensorflow.keras.models import load_model
-
 
 import torch
 from network import LitSpot
@@ -24,32 +21,8 @@ from src.utils.helpers import sample_points_from_mesh
 from src.utils.visualize_mesh import create_viewing_parameters, visualize_with_camera
 from src.utils.visualize_robot_state import update_meshes_with_fk, combine_meshes_o3d, create_red_markers, compute_forward_kinematics, find_closest_vertices, load_joint_torques, prepare_trimesh_fk, convert_trimesh_to_open3d
 
-from bosdyn.api.spot import choreography_sequence_pb2
-from bosdyn.client import create_standard_sdk
-from bosdyn.choreography.client.choreography import (ChoreographyClient,
-                                                     load_choreography_sequence_from_txt_file)
-from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.api import lease_pb2
-from google.protobuf.timestamp_pb2 import Timestamp
-from bosdyn.api import header_pb2
-from bosdyn.client import ResponseError, RpcError, create_standard_sdk
-from bosdyn.client.exceptions import UnauthenticatedError
-from bosdyn.client.license import LicenseClient
 
 
-
-def collect_realtime_data(robot_state_client, duration=2):
-    """
-    Collect real-time data from the robot for a specified duration.
-    """
-    start_time = time.time()
-    data = []
-
-    while time.time() - start_time < duration:
-        state = robot_state_client.get_robot_state()
-        data.append(state)
-
-    return np.array(data)
 
 def preprocess_realtime_data(data, markers_path, normalize=True):
     """
@@ -82,60 +55,8 @@ def preprocess_realtime_data(data, markers_path, normalize=True):
 
     return data_processed
 
-def infer_realtime(model, data, classes):
-    """
-    Perform real-time inference using the trained model.
-    """
-    predictions = model.predict(data)
-
-    if predictions.shape[0] == 2:  # Multiple samples
-        predicted_classes = [np.argmax(pred) for pred in predictions]
-        
-        # Find the most common class
-        most_common_class_index, count = Counter(predicted_classes).most_common(1)[0]
-        predicted_class = classes[most_common_class_index]
-        
-        # Confidence can be calculated as the proportion of predictions for the most common class
-        confidence = count / len(predicted_classes)
-    else:  # Single sample
-        predicted_class_index = np.argmax(predictions)
-        confidence = np.max(predictions)
-        predicted_class = classes[predicted_class_index]
-
-    print(f"Prediction: {predicted_class}, Confidence: {confidence:.2f}")
-    return predicted_class, confidence
 
 
-def visualize_prediction(marker_positions, predicted_class, robot_meshes):
-    """
-    Visualize the prediction on the robot with markers.
-    """
-    pos = marker_positions.get(predicted_class)
-    marker = create_red_markers([pos], radius=0.04)[0]
-    if marker is None:
-        print(f"No marker for predicted class: {predicted_class}")
-        return
-
-    # Create camera parameters for the marker
-    camera_params = create_viewing_parameters(pos)
-    geometries = robot_meshes + [marker]
-    # Visualize the robot with the predicted marker
-    print(f"Visualizing prediction for class: {predicted_class}")
-    visualize_with_camera(geometries, camera_params)
-
-
-# @tf.keras.utils.register_keras_serializable()
-# def euclidean_distance(y_true, y_pred):
-#     return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred), axis=-1)))
-
-# @tf.keras.utils.register_keras_serializable()
-# def regression_accuracy(y_true, y_pred, tolerance=0.1):
-#     # Calculate the Euclidean distance between true and predicted coordinates
-#     distance = tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred), axis=-1))
-#     # Check if the distance is within the tolerance
-#     correct_predictions = tf.cast(distance <= tolerance, tf.float32)
-#     # Return the mean accuracy
-#     return tf.reduce_mean(correct_predictions)
 
 
 def load_from_checkpoint(checkpoint_path, input_dim, output_dim, markers_path, device, classify, seq, robot_type):
@@ -177,21 +98,20 @@ def exe_choreo(choreography, choreography_client):
 
 def main():
     import argparse
-    from bosdyn.client.robot_state import RobotStateClient
-    from bosdyn.client import create_standard_sdk
-    import bosdyn.client.util
 
     parser = argparse.ArgumentParser()
-    bosdyn.client.util.add_base_arguments(parser)
     parser.add_argument('--ckpts_path', required=True, help='Path to the trained model')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
     parser.add_argument('--data_dir', required=True, help='Path to the directory containing torque data')
     parser.add_argument('--device', required=True, help='gpu or cpu')
     parser.add_argument('--robot_type', required=True, help='Robot type: spot or franka')
-    parser.add_argument('--choreography-filepaths', required=True, nargs='+',
-                    help='List of filepath(s) to load the choreographed sequence text files from.')
     parser.add_argument('--classify', action='store_true', help='Run classification model instead of regression')
     parser.add_argument('--seq', type=int, help='Train on sequence data, length of sequence')
+    # spot: optional
+    parser.add_argument('--hostname', required=False, help='Hostname of the robot')
+    parser.add_argument('--choreo', action='store_true', help='Run choreography')
+    parser.add_argument('--choreography-filepaths', required=False, nargs='+',
+                    help='List of filepath(s) to load the choreographed sequence text files from.')
 
 
 
@@ -200,7 +120,30 @@ def main():
     device  = options.device
     seq = options.seq
     robot_type = options.robot_type
-    choreo_files = options.choreography_filepaths
+
+    if robot_type == 'spot':    
+        # imports
+        from bosdyn.client.robot_state import RobotStateClient
+        from bosdyn.client import create_standard_sdk
+        import bosdyn.client.util
+
+        from bosdyn.api.spot import choreography_sequence_pb2
+        from bosdyn.client import create_standard_sdk
+        from bosdyn.choreography.client.choreography import (ChoreographyClient,
+                                                            load_choreography_sequence_from_txt_file)
+        from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+        from bosdyn.api import lease_pb2
+        from google.protobuf.timestamp_pb2 import Timestamp
+        from bosdyn.api import header_pb2
+        from bosdyn.client import ResponseError, RpcError, create_standard_sdk
+        from bosdyn.client.exceptions import UnauthenticatedError
+        from bosdyn.client.license import LicenseClient
+        # choreography
+        try options.choreography_filepaths:
+            choreo_files = options.choreography_filepaths
+        except:
+            print("No choreography files provided.")
+            sys.exit(1)
 
 
      # Load marker positions
@@ -211,7 +154,8 @@ def main():
     print("Loading the model...")
     # model = load_model(options.model_path)
     if classify:
-        output_dim = 101
+        output_dim = markers_pos.shape[0] + 1
+        print(f"Output dim: {output_dim}")
     else:
         output_dim = 3
     model = load_from_checkpoint(options.ckpts_path, input_dim=24 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, device=device, seq=seq, robot_type=robot_type)
@@ -224,55 +168,56 @@ def main():
     robot = sdk.create_robot(options.hostname)
     bosdyn.client.util.authenticate(robot)
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-    # # License 
-    # license_client = robot.ensure_client(LicenseClient.default_service_name)
-    # if not license_client.get_feature_enabled([ChoreographyClient.license_name
-    #                                           ])[ChoreographyClient.license_name]:
-    #     print('This robot is not licensed for choreography.')
-    #     sys.exit(1)
-    #  # Check that an estop is connected with the robot so that the robot commands can be executed.
-    # assert not robot.is_estopped(), 'Robot is estopped. Please use an external E-Stop client, ' \
-    #                                 'such as the estop SDK example, to configure E-Stop.'
 
-    # # Get lease client and take control
-    # lease_client = robot.ensure_client(LeaseClient.default_service_name)    lease = lease_client.take()
-    # lk = LeaseKeepAlive(lease_client)
+    # License 
+    license_client = robot.ensure_client(LicenseClient.default_service_name)
+    if not license_client.get_feature_enabled([ChoreographyClient.license_name
+                                              ])[ChoreographyClient.license_name]:
+        print('This robot is not licensed for choreography.')
+        sys.exit(1)
+     # Check that an estop is connected with the robot so that the robot commands can be executed.
+    assert not robot.is_estopped(), 'Robot is estopped. Please use an external E-Stop client, ' \
+                                    'such as the estop SDK example, to configure E-Stop.'
 
-    # # client_lease = lease_response
-    # # lease_proto = lease_response.lease_proto
-    # # lease_client.retain_lease(client_lease)
+    # Get lease client and take control
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)    lease = lease_client.take()
+    lk = LeaseKeepAlive(lease_client)
 
-    # # Create choreography client
-    # choreography_client = robot.ensure_client(ChoreographyClient.default_service_name)
-    # available_moves = choreography_client.list_all_moves()
-    # choreos = [] # step, trot, turn_2step, twerk, unstow
-    # for choreo_file in choreo_files:
-    #     try:
-    #         choreos.append(load_choreography_sequence_from_txt_file(choreo_file))
-    #     except Exception as excep:
-    #         print(f'Failed to load choreography. Raised exception: {excep}')
-    #         return True
-    # # upload the routine to the robot
-    # for choreo in choreos:
-    #     try:
-    #         upload_response = choreography_client.upload_choreography(choreo,
-    #                                                                     non_strict_parsing=True)
-    #     except UnauthenticatedError as err:
-    #         print(
-    #             'The robot license must contain \'choreography\' permissions to upload and execute dances. ')
-    #         return True
-    #     except ResponseError as err:
-    #         error_msg = 'Choreography sequence upload failed. The following warnings were produced: '
-    #         for warn in err.response.warnings:
-    #             error_msg += warn
-    #         print(error_msg)
-    #         return True
+    # client_lease = lease_response
+    # lease_proto = lease_response.lease_proto
+    # lease_client.retain_lease(client_lease)
+
+    # Create choreography client
+    choreography_client = robot.ensure_client(ChoreographyClient.default_service_name)
+    available_moves = choreography_client.list_all_moves()
+    choreos = [] # step, trot, turn_2step, twerk, unstow
+    for choreo_file in choreo_files:
+        try:
+            choreos.append(load_choreography_sequence_from_txt_file(choreo_file))
+        except Exception as excep:
+            print(f'Failed to load choreography. Raised exception: {excep}')
+            return True
+    # upload the routine to the robot
+    for choreo in choreos:
+        try:
+            upload_response = choreography_client.upload_choreography(choreo,
+                                                                        non_strict_parsing=True)
+        except UnauthenticatedError as err:
+            print(
+                'The robot license must contain \'choreography\' permissions to upload and execute dances. ')
+            return True
+        except ResponseError as err:
+            error_msg = 'Choreography sequence upload failed. The following warnings were produced: '
+            for warn in err.response.warnings:
+                error_msg += warn
+            print(error_msg)
+            return True
     
-    # sequences_on_robot = choreography_client.list_all_sequences()
-    # known_sequences = '\n'.join(sequences_on_robot.known_sequences)
-    # print(f'Sequence uploaded. All sequences on the robot:\n{known_sequences}')
+    sequences_on_robot = choreography_client.list_all_sequences()
+    known_sequences = '\n'.join(sequences_on_robot.known_sequences)
+    print(f'Sequence uploaded. All sequences on the robot:\n{known_sequences}')
 
-    # robot.power_on()
+    robot.power_on()
 
 
     ##############################
@@ -444,12 +389,9 @@ def main():
             for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
                 pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
-            indices = kdtree.query_ball_point(pos, radius)
             print(f"pos: {pos}")
-            for idx in indices:
-                pcd_idx = np.searchsorted(point_cloud_boundaries, idx, side='right') - 1
-                local_idx = idx - point_cloud_boundaries[pcd_idx]
-                    
+            cur_marker_pcd_indices, cur_marker_local_indices = visualizer.pos_2pcd(pos)
+            for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
                 colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
                 colors[local_idx] = [1, 0, 0]
                 visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
