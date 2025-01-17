@@ -23,7 +23,7 @@ from src.utils.visualize_robot_state import update_meshes_with_fk, combine_meshe
 
 
 class RealtimeRobot:
-    def __init__(self, markers_path, classify, ckpts_path, seq, device, robot_type):
+    def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, robot_type):
         self.markers_path = markers_path
         self.classify = classify
         self.ckpts_path = ckpts_path
@@ -33,11 +33,11 @@ class RealtimeRobot:
 
         # Load marker positions
         self.markers_pos = np.loadtxt(markers_path, delimiter=",")
-        self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
-        print(f"Loaded marker positions: {len(marker_positions)}")
+        self.marker_positions = {f"{i}": pos for i, pos in enumerate(self.markers_pos)}
+        print(f"Loaded marker positions: {len(self.marker_positions)}")
 
         folder_path =  Path(__file__).parent
-        torque_dir = os.path.join(folder_path, options.data_dir)
+        torque_dir = os.path.join(folder_path, data_dir)
         subdirs = natsorted(os.listdir(torque_dir))
         torque_files = [f for f in os.listdir(os.path.join(torque_dir, subdirs[0])) if f.endswith('.npy')]
         torque_files = natsorted(torque_files)
@@ -50,7 +50,7 @@ class RealtimeRobot:
                 self.coordinates[str(self.markers_pos.shape[0])] = np.array([0, 0, 0])
                 print(f"key:{str(self.markers_pos.shape[0])}")
             else:
-                self.coordinates[c] = marker_positions.get(c)
+                self.coordinates[c] = self.marker_positions.get(c)
 
         # Load the trained model
         print("Loading the model...")
@@ -99,15 +99,6 @@ class RealtimeRobot:
         if not self.classify:
             weights = weights / np.sum(weights)
 
-        original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
-        # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
-    
-        # Add the combined mesh to the visualizer
-        all_points = np.concatenate([np.asarray(pcd.points) for pcd in visualizer.point_clouds])
-        kdtree = cKDTree(all_points)
-
-        point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in visualizer.point_clouds]
-        point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
 
         self.data_buffer = data_buffer
         self.buffer = buffer
@@ -120,7 +111,7 @@ class RealtimeRobot:
         # processed_data = data_buffer.flatten()
         processed_data_tensor = torch.tensor(self.data_buffer.flatten(), dtype=torch.float32).to(model.device).reshape(1, -1)
         with torch.no_grad():
-            if device == "gpu":
+            if self.device == "gpu":
                 self.buffer[0:self.seq] = self.model.predict(processed_data_tensor).cpu().numpy().reshape(self.seq, -1)
             else:
                 result = self.model.predict(processed_data_tensor).numpy()
@@ -150,24 +141,35 @@ class RealtimeRobot:
 
 
     def vis_prediction(self, pos, threshold=0.1):
+        original_colors = [np.asarray(pcd.colors).copy() for pcd in self.visualizer.point_clouds]
+        # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
+    
+        # Add the combined mesh to the visualizer
+        all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.visualizer.point_clouds])
+        kdtree = cKDTree(all_points)
+
+        point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in self.visualizer.point_clouds]
+        point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
+
         for pcd, orig_color in zip(self.visualizer.point_clouds, original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
         print(f"pos: {pos}")
-        cur_marker_pcd_indices, cur_marker_local_indices = visualizer.pos_2pcd(pos)
+        cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos)
         for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
-            colors = np.asarray(visualizer.point_clouds[pcd_idx].colors)
+            colors = np.asarray(self.visualizer.point_clouds[pcd_idx].colors)
             colors[local_idx] = [1, 0, 0]
-            visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
-
-        vis.poll_events()
-        vis.update_renderer()
+            self.visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+        
+        # if self.vis:
+        #     self.vis.poll_events()
+        #     self.vis.update_renderer()
        
     
 
 
 class RealtimeSpot(RealtimeRobot):
-    def __init__(self, markers_path, classify, ckpts_path, seq, device, hostname, choreo, choreography_filepaths):
+    def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, hostname, choreo, choreography_filepaths):
         # imports
         from bosdyn.client.robot_state import RobotStateClient
         from bosdyn.client import create_standard_sdk
@@ -185,7 +187,7 @@ class RealtimeSpot(RealtimeRobot):
         from bosdyn.client.exceptions import UnauthenticatedError
         from bosdyn.client.license import LicenseClient
         
-        super().__init__(markers_path, classify, ckpts_path, seq, device, robot_type="spot")
+        super().__init__(markers_path, data_dir, classify, ckpts_path, seq, device, robot_type="spot")
         self.hostname = hostname
         self.choreo = choreo
         self.choreo_files = choreography_filepaths
@@ -351,22 +353,22 @@ class RealtimeSpot(RealtimeRobot):
         # # step, trot, turn_2step, twerk, unstow
         # left
         if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-            self.exe_choreo(choreos[0]) # step
+            self.exe_choreo(self.choreos[0]) # step
         # right
         elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-            self.exe_choreo(choreos[1]) # trot
+            self.exe_choreo(self.choreos[1]) # trot
         # front
         elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
-            self.exe_choreo(choreos[2]) # turn_2step
+            self.exe_choreo(self.choreos[2]) # turn_2step
         # back
         elif pos[0] < -0.45 and pos[2] < 0.1:
         # and -0.14 < pos[1] < 0.14:
-            self.exe_choreo(choreos[3]) # twerk
+            self.exe_choreo(self.choreos[3]) # twerk
         # top
         elif pos[2] > 0.11:
-            self.exe_choreo(choreos[4]) # unstow
-        else: 
-            continue
+            self.exe_choreo(self.choreos[4]) # unstow
+        # else: 
+        #     continue
 
 
 
@@ -374,12 +376,12 @@ class RealtimeSpot(RealtimeRobot):
 
 
 class RealtimeFranka(RealtimeRobot):
-    def __init__(self, markers_path, classify, ckpts_path, seq, device, robot_type):
+    def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, robot_type):
         import rospy
         from rospy import Subscriber, Rate
         from sensor_msgs.msg import JointState
 
-        super().__init__(markers_path, classify, ckpts_path, seq, device, robot_type="franka")
+        super().__init__(markers_path, data_dir, classify, ckpts_path, seq, device, robot_type="franka")
         rospy.init_node("save_franka_state")
         self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
         self.save_rate = Rate(30)
@@ -429,12 +431,13 @@ def main():
     seq = options.seq
     robot_type = options.robot_type
     markers_path = options.markers_path
+    data_dir = options.data_dir
 
     if robot_type == 'spot':    
         # choreography
-        try options.choreography_filepaths:
+        if options.choreography_filepaths:
             choreo_files = options.choreography_filepaths
-        except:
+        else:
             print("No choreography files provided.")
             sys.exit(1)
         realtime_robot = RealtimeSpot(markers_path, classify, options.ckpts_path, seq, device, options.hostname, options.choreo, choreo_files)

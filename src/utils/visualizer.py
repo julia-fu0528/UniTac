@@ -137,7 +137,7 @@ class RobotVisualizer():
             self.pcd_indices.append(cur_marker_pcd_indices)
             self.local_indices.append(cur_marker_local_indices)
 
-    def pos_2pcd(self, pos, radius == 0.02):
+    def pos_2pcd(self, pos, radius = 0.02):
         all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.default_pcds])
         kdtree = cKDTree(all_points)
 
