@@ -79,12 +79,21 @@ class RealtimeRobot:
         """
         if self.device == "gpu":
             self.device = "cuda"
-        checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
-        model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
-                        classify=self.classify, seq = self.seq, robot_type=self.robot_type)
+        # checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
+        # model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
+        #                 classify=self.classify, seq = self.seq, robot_type=self.robot_type)
         print(f"loading state dict")
-        print(f"checkpoint: {checkpoint['state_dict']}")
-        model.load_state_dict(checkpoint['state_dict'])
+        # model.load_state_dict(checkpoint['state_dict'])
+        model = LitRobot.load_from_checkpoint(
+            self.ckpts_path,
+            input_dim=input_dim,
+            output_dim=output_dim,
+            markers_path=self.markers_path,
+            classify=self.classify,
+            seq=self.seq,
+            robot_type=self.robot_type,
+            map_location=torch.device(self.device)
+        )
         print(f"finished loading state dict")
         model.to(self.device)
         print(f"finish to device")
