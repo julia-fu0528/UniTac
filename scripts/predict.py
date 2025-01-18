@@ -70,6 +70,7 @@ class RealtimeRobot:
         vis = o3d.visualization.Visualizer() 
         vis.create_window()
         self.visualizer = RobotVisualizer(robot_type=robot_type, vis=vis)
+        self.original_colors = [np.asarray(pcd.colors).copy() for pcd in self.visualizer.point_clouds]
         # self.visualizer = RobotVisualizer(robot_type=robot_type)
     
     def load_from_checkpoint(self, input_dim, output_dim):
@@ -149,17 +150,9 @@ class RealtimeRobot:
 
 
     def vis_prediction(self, pos, threshold=0.1):
-        original_colors = [np.asarray(pcd.colors).copy() for pcd in self.visualizer.point_clouds]
         # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
-    
-        # Add the combined mesh to the visualizer
-        all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.visualizer.point_clouds])
-        kdtree = cKDTree(all_points)
 
-        point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in self.visualizer.point_clouds]
-        point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
-
-        for pcd, orig_color in zip(self.visualizer.point_clouds, original_colors):
+        for pcd, orig_color in zip(self.visualizer.point_clouds, self.original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
         print(f"pos: {pos}")
@@ -456,7 +449,6 @@ def main():
         realtime_robot = RealtimeSpot(markers_path, data_dir, classify, options.ckpts_path, seq, device, options.hostname, options.choreo, choreo_files)
     elif robot_type == 'franka':
         realtime_robot = RealtimeFranka(markers_path, data_dir, classify, options.ckpts_path, seq, device)
-    sys.exit()
     # Create buffers
     data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.95, sliding_win=3)
 

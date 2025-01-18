@@ -41,6 +41,7 @@ class RobotVisualizer():
             self.vis.poll_events()
             self.vis.update_renderer()
 
+
     def convert_trimesh_to_open3d(self, trimesh_fk):
         o3d_meshes = []
         if self.point_clouds == []:
@@ -71,6 +72,11 @@ class RobotVisualizer():
         
         if initializing:
             self.default_pcds = self.point_clouds.copy()
+            self.all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.default_pcds])
+            self.kdtree = cKDTree(self.all_points)
+
+            self.point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in self.default_pcds]
+            self.point_cloud_boundaries = np.cumsum([0] + self.point_cloud_sizes) 
 
         return o3d_meshes
     
@@ -117,7 +123,7 @@ class RobotVisualizer():
             #     o3d.visualization.draw_geometries(self.o3d_meshes_default)
             #     o3d.visualization.draw_geometries(self.point_clouds)
     
-    def marker_2vert(self, markers_pos, radius = 0.02):
+    def marker_2vert(self, markers_pos, radius = 0.04):
         all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.point_clouds])
         kdtree = cKDTree(all_points)
 
@@ -137,19 +143,13 @@ class RobotVisualizer():
             self.pcd_indices.append(cur_marker_pcd_indices)
             self.local_indices.append(cur_marker_local_indices)
 
-    def pos_2pcd(self, pos, radius = 0.02):
-        all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.default_pcds])
-        kdtree = cKDTree(all_points)
-
-        point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in self.default_pcds]
-        point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
-
-        indices = kdtree.query_ball_point(pos, radius)
+    def pos_2pcd(self, pos, radius = 0.04):
+        indices = self.kdtree.query_ball_point(pos, radius)
         cur_marker_pcd_indices = []
         cur_marker_local_indices = []
         for idx in indices:
-            pcd_idx = np.searchsorted(point_cloud_boundaries, idx, side='right') - 1
-            local_idx = idx - point_cloud_boundaries[pcd_idx]
+            pcd_idx = np.searchsorted(self.point_cloud_boundaries, idx, side='right') - 1
+            local_idx = idx - self.point_cloud_boundaries[pcd_idx]
         
             cur_marker_pcd_indices.append(pcd_idx)
             cur_marker_local_indices.append(local_idx)
