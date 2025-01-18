@@ -37,16 +37,17 @@ class JointNetwork(nn.Module):
 
                 nn.Linear(128, 256),
                 nn.ReLU(),
-                nn.Linear(256, 256),
-                nn.ReLU(),
                 nn.Dropout(0.3),
-                nn.Linear(256, 256),
-                nn.ReLU(),
-                
-                nn.Linear(256, 256),
-                nn.ReLU(),
                 nn.Linear(256, 128),
                 nn.ReLU(),
+                # nn.Dropout(0.3),
+                # nn.Linear(256, 256),
+                # nn.ReLU(),
+                
+                # nn.Linear(256, 256),
+                # nn.ReLU(),
+                # nn.Linear(256, 128),
+                # nn.ReLU(),
 
                 nn.Linear(128, output_dim)
             )
