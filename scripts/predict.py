@@ -59,7 +59,10 @@ class RealtimeRobot:
             print(f"Output dim: {output_dim}")
         else:
             output_dim = 3
-        self.model = self.load_from_checkpoint( input_dim=14 * seq, output_dim=output_dim * seq)
+        if self.robot_type == 'spot':
+            self.model = self.load_from_checkpoint(input_dim=24 * seq, output_dim=output_dim * seq)
+        elif self.robot_type == 'franka':
+            self.model = self.load_from_checkpoint( input_dim=14 * seq, output_dim=output_dim * seq)
         print("Model loaded successfully.")
 
 
@@ -78,9 +81,14 @@ class RealtimeRobot:
         checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
         model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
                         classify=self.classify, seq = self.seq, robot_type=self.robot_type)
+        print(f"loading state dict")
+        print(f"checkpoint: {checkpoint['state_dict']}")
         model.load_state_dict(checkpoint['state_dict'])
+        print(f"finished loading state dict")
         model.to(self.device)
+        print(f"finish to device")
         model.eval()
+        print(f"return from load from checkpoint")
         return model
     
     def create_buffers(self, seq_win, radius=0.04, alpha=0.95, sliding_win=3):
@@ -169,7 +177,7 @@ class RealtimeRobot:
 
 
 class RealtimeSpot(RealtimeRobot):
-    def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, hostname, choreo, choreography_filepaths):
+    def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, hostname, choreo, choreography_filepaths=None):
         # imports
         from bosdyn.client.robot_state import RobotStateClient
         from bosdyn.client import create_standard_sdk
@@ -377,27 +385,29 @@ class RealtimeSpot(RealtimeRobot):
 
 class RealtimeFranka(RealtimeRobot):
     def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device):
-        import rospy
-        from rospy import Subscriber, Rate
-        from sensor_msgs.msg import JointState
+        # import rospy
+        # from rospy import Subscriber, Rate
+        # from sensor_msgs.msg import JointState
 
         super().__init__(markers_path, data_dir, classify, ckpts_path, seq, device, robot_type="franka")
-        rospy.init_node("save_franka_state")
-        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
-        self.save_rate = Rate(30)
+        # rospy.init_node("save_franka_state")
+        # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        # self.save_rate = Rate(30)
         self.current_state = None
     
     def joint_callback(self, state):
         self.current_state = state
 
     def update_vis(self):
-        if self.current_state is None:
-            return
+        # if self.current_state is None:
+        #     return
         self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
         joint_position = self.current_state.position
         joint_torque = self.current_state.effort
-        state = np.hstack([joint_torque[:7], joint_position[:7]], )
-        self.save_rate.sleep()
+        # state = np.hstack([joint_torque[:7], joint_position[:7]], )
+        states = np.load("../data/franka_right/test1/1.npy", allow_pickle=True)
+        state = states[0]
+        # self.save_rate.sleep()
 
         self.data_buffer[0] = state
         print(f"Processed data shape: {state.shape}")
@@ -435,15 +445,18 @@ def main():
 
     if robot_type == 'spot':    
         # choreography
-        if options.choreography_filepaths:
-            choreo_files = options.choreography_filepaths
+        if options.choreo:
+            if options.choreography_filepaths:
+                choreo_files = options.choreography_filepaths
+            else:
+                print("No choreography files provided.")
+                sys.exit(1)
         else:
-            print("No choreography files provided.")
-            sys.exit(1)
+            choreo_files = None
         realtime_robot = RealtimeSpot(markers_path, data_dir, classify, options.ckpts_path, seq, device, options.hostname, options.choreo, choreo_files)
     elif robot_type == 'franka':
         realtime_robot = RealtimeFranka(markers_path, data_dir, classify, options.ckpts_path, seq, device)
-
+    sys.exit()
     # Create buffers
     data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.95, sliding_win=3)
 
