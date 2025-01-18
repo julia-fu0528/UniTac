@@ -34,7 +34,8 @@ class RealtimeRobot:
         # Load marker positions
         self.markers_pos = np.loadtxt(markers_path, delimiter=",")
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(self.markers_pos)}
-        print(f"Loaded marker positions: {len(self.marker_positions)}")
+        print(f"Loaded marker positions: {self.marker_positions}")
+        # sys.exit()
 
         folder_path =  Path(__file__).parent
         torque_dir = os.path.join(folder_path, data_dir)
@@ -134,6 +135,7 @@ class RealtimeRobot:
             else:
                 result = self.model.predict(processed_data_tensor).numpy()
                 self.buffer[0:self.seq] = self.model.predict(processed_data_tensor).numpy().reshape(self.seq, -1)
+        print(f"Buffer shape: {self.buffer}")
         predictions = np.dot(self.weights, self.buffer)
 
         if self.classify:
@@ -159,13 +161,15 @@ class RealtimeRobot:
 
 
     def vis_prediction(self, pos, threshold=0.1):
+        # pos = np.array([0.03444629, 0.0472558 , 0.4486532 ])
         # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
-
+        print(f"pos: {pos}")
         for pcd, orig_color in zip(self.visualizer.point_clouds, self.original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
-        print(f"pos: {pos}")
-        cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos)
+        cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos, radius=0.02)
+        print(f"cur_marker_pcd_indices: {cur_marker_pcd_indices}")
+        print(f"cur_marker_local_indices: {cur_marker_local_indices}")
         for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
             colors = np.asarray(self.visualizer.point_clouds[pcd_idx].colors)
             colors[local_idx] = [1, 0, 0]
@@ -396,6 +400,7 @@ class RealtimeFranka(RealtimeRobot):
         # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
         # self.save_rate = Rate(30)
         self.current_state = None
+        self.idx = 0
     
     def joint_callback(self, state):
         self.current_state = state
@@ -404,11 +409,15 @@ class RealtimeFranka(RealtimeRobot):
         # if self.current_state is None:
         #     return
         self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
-        joint_position = self.current_state.position
-        joint_torque = self.current_state.effort
+        # joint_position = self.current_state.position
+        joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
+        # joint_torque = self.current_state.effort
         # state = np.hstack([joint_torque[:7], joint_position[:7]], )
-        states = np.load("../data/franka_right/test1/1.npy", allow_pickle=True)
-        state = states[0]
+        states = np.load("../data/franka_right/test12/no_contact.npy", allow_pickle=True)
+        if self.idx >= len(states):
+            self.idx = 0
+        state = states[self.idx]
+        self.idx += 1
         # self.save_rate.sleep()
 
         self.data_buffer[0] = state

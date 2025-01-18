@@ -18,7 +18,7 @@
 
 
 echo "################# PREDICTING ################################"
-python predict.py --ckpts_path ../gouger_logs/franka/regression/version_493/checkpoints/best.ckpt\
+python predict.py --ckpts_path ../gouger_logs/franka/regression/version_497/checkpoints/best.ckpt\
                   --markers_path ../data/franka_10markers_pos.txt --data_dir ../data/franka_right --device cpu --seq 1 --robot_type franka\
                 #   --choreography-filepaths ../choreo/step.txt ../choreo/trot.txt ../choreo/turn_2step.txt ../choreo/twerk.txt ../choreo/unstow.txt\
 
