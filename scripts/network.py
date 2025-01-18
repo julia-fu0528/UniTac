@@ -34,30 +34,25 @@ class JointNetwork(nn.Module):
 
                 nn.Linear(64, 128),
                 nn.ReLU(),
-                # ResidualBlock(128),
-                # nn.BatchNorm1d(128),
 
-                nn.Linear(128, 256),
+                nn.Linear(128, 128),
                 nn.ReLU(),
-                nn.Linear(256, 256),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                nn.Linear(256, 256),
-                nn.ReLU(),
-                # nn.Dropout(0.1),
-                nn.Linear(256, 256),
-                nn.ReLU(),
-                nn.Linear(256, 128),
-                nn.ReLU(),
-                # ResidualBlock(128),
-                # ResidualBlock(128),
+                # nn.Linear(256, 256),
+                # nn.ReLU(),
                 # nn.Dropout(0.3),
-                # nn.BatchNorm1d(128),
+                # nn.Linear(256, 256),
+                # nn.ReLU(),
+                
+                # nn.Linear(256, 256),
+                # nn.ReLU(),
+                # nn.Linear(256, 128),
+                # nn.ReLU(),
 
                 nn.Linear(128, output_dim)
             )
     
     def forward(self, x):
+
         return self.network(x)
 
 class ResidualBlock(nn.Module):

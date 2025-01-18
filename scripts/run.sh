@@ -11,16 +11,16 @@
 #                     --markers_path ../data/franka_10markers_pos.txt \
 #                     --seq 1  --robot_type franka \
 
-# echo "################# TRAINING ###############################"
-# python train.py --session franka_right --data_dir ../data \
-#                 --markers_path ../data/franka_10markers_pos.txt --device "gpu" \
-#                 --seq 1 --robot_type franka
+echo "################# TRAINING ###############################"
+python train.py --session gouger1209 --data_dir ../data \
+                --markers_path ../data/gouger_markers_pos.txt --device "gpu" \
+                --seq 1 --robot_type spot
 
 
-echo "################# PREDICTING ################################"
-python predict.py --ckpts_path ../gouger_logs/spot/regression/version_3/checkpoints/best.ckpt\
-                  --markers_path ../data/gouger_markers_pos.txt --data_dir ../data/gouger1209 --device cpu --seq 1 --robot_type spot\
-                #   --choreography-filepaths ../choreo/step.txt ../choreo/trot.txt ../choreo/turn_2step.txt ../choreo/twerk.txt ../choreo/unstow.txt\
+# echo "################# PREDICTING ################################"
+# python predict.py --ckpts_path ../gouger_logs/spot/regression/version_3/checkpoints/best.ckpt\
+#                   --markers_path ../data/gouger_markers_pos.txt --data_dir ../data/gouger1209 --device cpu --seq 1 --robot_type spot\
+#                 #   --choreography-filepaths ../choreo/step.txt ../choreo/trot.txt ../choreo/turn_2step.txt ../choreo/twerk.txt ../choreo/unstow.txt\
 
 
 
