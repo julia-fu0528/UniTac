@@ -93,9 +93,9 @@ class RealtimeRobot:
             robot_type=self.robot_type,
             map_location=torch.device(self.device)
         )
-        trainer = L.Trainer()
-        trainer.test(model, your_test_dataloader)
-        sys.exit()
+        # trainer = L.Trainer()
+        # trainer.test(model, your_test_dataloader)
+        # sys.exit()
         model.to(self.device)
         model.eval()
         return model
