@@ -16,22 +16,28 @@ class JointNetwork(nn.Module):
         if classify:
             self.network = nn.Sequential(
                 nn.Flatten(),
-                nn.Linear(input_dim, 128),
+                nn.Linear(input_dim, 64),
                 nn.ReLU(), 
                 # nn.BatchNorm1d(64),
 
-                nn.Linear(128, 256),
+                nn.Linear(64, 128),
                 nn.ReLU(),
                 nn.Dropout(0.3),
-                nn.BatchNorm1d(256),
+                # nn.BatchNorm1d(256),
 
-                nn.Linear(256, 256),
+                nn.Linear(128, 128),
                 nn.ReLU(),
                 nn.Dropout(0.3),
-                nn.BatchNorm1d(256),
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                nn.Linear(128, 128),
+                nn.ReLU(),
+                # nn.Dropout(0.3),
+
+                # nn.BatchNorm1d(256),
 
 
-                nn.Linear(256, output_dim),
+                nn.Linear(128, output_dim),
                 nn.Softmax(dim=1)
             )
         else:
@@ -39,22 +45,17 @@ class JointNetwork(nn.Module):
                 nn.Flatten(),
                 nn.Linear(input_dim, 64),
                 nn.ReLU(), 
-                # nn.BatchNorm1d(64),
 
                 nn.Linear(64, 128),
                 nn.ReLU(),
-
-                nn.Linear(128, 256),
-                nn.ReLU(),
                 nn.Dropout(0.3),
-                nn.Linear(256, 128),
+
+                nn.Linear(128, 128),
                 nn.ReLU(),
-                # nn.Dropout(0.3),
-                # nn.Linear(256, 256),
-                # nn.ReLU(),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
                 
-                # nn.Linear(256, 256),
-                # nn.ReLU(),
                 # nn.Linear(256, 128),
                 # nn.ReLU(),
 
@@ -87,7 +88,7 @@ class LitRobot(L.LightningModule):
         self.robot_type = robot_type
         # self.device = device   
 
-        self.classify = classifytrain 
+        self.classify = classify
         self.learning_rate = 2e-3
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
@@ -140,6 +141,8 @@ class LitRobot(L.LightningModule):
             y_pos = y.cpu().numpy()
 
             euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
+
+
 
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
             acc = np.mean(correct)
@@ -227,6 +230,18 @@ class LitRobot(L.LightningModule):
             y_pos = y.cpu().numpy()
 
             euclidean_distance = np.linalg.norm(y_pos - y_hat_pos, axis=1) / np.sqrt(self.seq)
+            
+            # calculate the distance from y_hat_pos to all the marker positions
+            distances = np.linalg.norm(self.marker_posarray[None, :, :] - y_hat_pos[:, None, :], axis=2)
+            min_indices = np.argmin(distances, axis=1)
+            min_indices = torch.tensor(min_indices, dtype=torch.long).to(device)
+            y_hat_label = min_indices
+
+            y_label = np.zeros(y_pos.shape[0])
+            for i, pos in enumerate(y_pos):
+                rounded_pos = tuple(np.round(pos, decimals=4))
+                y_label[i] = int(self.rev_marker_positions.get(rounded_pos))
+            y_label = torch.tensor(y_label, dtype=torch.long).to(device)
 
             correct = np.linalg.norm(y_pos - y_hat_pos, axis=1) < threshold
             acc = np.mean(correct)
@@ -235,9 +250,9 @@ class LitRobot(L.LightningModule):
         self.log("test/acc", acc, on_epoch = True, prog_bar = True)
         self.log("test/dist", euclidean_distance.mean(), on_epoch = True, prog_bar = True)
 
-        if self.classify:
-            self.test_outputs["preds"].append(y_hat_label)
-            self.test_outputs["labels"].append(y_label)
+        # if self.classify:
+        self.test_outputs["preds"].append(y_hat_label)
+        self.test_outputs["labels"].append(y_label)
 
         return loss
     
@@ -251,22 +266,22 @@ class LitRobot(L.LightningModule):
 
 
     def on_test_epoch_end(self):
-        if self.classify:
-            all_preds = torch.cat(self.test_outputs["preds"], dim=0)
-            print(f"all_preds: {all_preds.shape}")
-            all_labels = torch.cat(self.test_outputs["labels"], dim=0)
-            print(F"all_labels: {all_labels.shape}")
+        # if self.classify:
+        all_preds = torch.cat(self.test_outputs["preds"], dim=0)
+        print(f"all_preds: {all_preds.shape}")
+        all_labels = torch.cat(self.test_outputs["labels"], dim=0)
+        print(F"all_labels: {all_labels.shape}")
 
-            all_preds_np = all_preds.cpu().numpy()
-            all_labels_np = all_labels.cpu().numpy()
+        all_preds_np = all_preds.cpu().numpy()
+        all_labels_np = all_labels.cpu().numpy()
 
-            conf_matrix = metrics.confusion_matrix(all_labels_np, all_preds_np, labels=range(len(self.marker_positions.keys())))
+        conf_matrix = metrics.confusion_matrix(all_labels_np, all_preds_np, labels=range(len(self.marker_positions.keys())))
 
-            f1 = f1_score(all_labels_np, all_preds_np, average='weighted')
+        f1 = f1_score(all_labels_np, all_preds_np, average='weighted')
 
-            self.log('test_f1_score', f1)
-            self.plot_confusion_matrix(conf_matrix, class_names = self.marker_positions.keys())
-            print(f"Test F1 Score: {f1:.4f}")
+        self.log('test_f1_score', f1)
+        self.plot_confusion_matrix(conf_matrix, class_names = self.marker_positions.keys())
+        print(f"Test F1 Score: {f1:.4f}")
 
 
         avg_test_loss = self.trainer.logged_metrics.get("test/loss")
@@ -283,7 +298,8 @@ class LitRobot(L.LightningModule):
         ax.set_ylabel('True Labels')
         ax.set_xticklabels(class_names)
         ax.set_yticklabels(class_names)
-        ax.set_title('Confusion Matrix')
+        model_type = "Classification" if self.classify else "Regression"
+        ax.set_title(f'Confusion Matrix {model_type}')
         plt.xticks(rotation=90)
         plt.yticks(rotation=0)
         plt.savefig(file_path)

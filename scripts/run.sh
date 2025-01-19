@@ -14,8 +14,7 @@
 echo "################# TRAINING ###############################"
 python train.py --session franka_right --data_dir ../data \
                 --markers_path ../data/franka_10markers_pos.txt --device "gpu" \
-                --seq 1 --robot_type franka --classify
-
+                --seq 1 --robot_type franka 
 
 # echo "################# PREDICTING ################################"
 # python predict.py --ckpts_path ../gouger_logs/franka/regression/version_493/checkpoints/best.ckpt\
