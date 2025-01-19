@@ -34,7 +34,8 @@ class RealtimeRobot:
         # Load marker positions
         self.markers_pos = np.loadtxt(markers_path, delimiter=",")
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(self.markers_pos)}
-        print(f"Loaded marker positions: {len(self.marker_positions)}")
+        print(f"Loaded marker positions: {self.marker_positions}")
+        # sys.exit()
 
         folder_path =  Path(__file__).parent
         torque_dir = os.path.join(folder_path, data_dir)
@@ -48,7 +49,6 @@ class RealtimeRobot:
         for c in self.classes:
             if self.marker_positions.get(c) is None:
                 self.coordinates[str(self.markers_pos.shape[0])] = np.array([0, 0, 0])
-                print(f"key:{str(self.markers_pos.shape[0])}")
             else:
                 self.coordinates[c] = self.marker_positions.get(c)
 
@@ -82,7 +82,6 @@ class RealtimeRobot:
         # checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
         # model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
         #                 classify=self.classify, seq = self.seq, robot_type=self.robot_type)
-        print(f"loading state dict")
         # model.load_state_dict(checkpoint['state_dict'])
         model = LitRobot.load_from_checkpoint(
             self.ckpts_path,
@@ -94,11 +93,8 @@ class RealtimeRobot:
             robot_type=self.robot_type,
             map_location=torch.device(self.device)
         )
-        print(f"finished loading state dict")
         model.to(self.device)
-        print(f"finish to device")
         model.eval()
-        print(f"return from load from checkpoint")
         return model
     
     def create_buffers(self, seq_win, radius=0.04, alpha=0.95, sliding_win=3):
@@ -159,13 +155,14 @@ class RealtimeRobot:
 
 
     def vis_prediction(self, pos, threshold=0.1):
+        # pos = np.array([0.03444629, 0.0472558 , 0.4486532 ])
         # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
-
+        print(f"pos: {pos}")
         for pcd, orig_color in zip(self.visualizer.point_clouds, self.original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
-        print(f"pos: {pos}")
-        cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos)
+        cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos, radius=0.02)
+        print(f"cur_marker_pcd_indices: {cur_marker_pcd_indices}")
         for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
             colors = np.asarray(self.visualizer.point_clouds[pcd_idx].colors)
             colors[local_idx] = [1, 0, 0]
@@ -288,7 +285,7 @@ class RealtimeSpot(RealtimeRobot):
         # Preprocess the data for inference
         processed_data = self.preprocess_realtime_data(state, normalize=True)
         self.data_buffer[0] = processed_data
-        print(f"Processed data shape: {processed_data.shape}")
+
         joint_positions = {joint.name: 0.0 for joint in self.visualizer.robot.joints}
         joint_states = state.kinematic_state.joint_states
         for joint_info in joint_states:
@@ -387,29 +384,35 @@ class RealtimeSpot(RealtimeRobot):
 
 class RealtimeFranka(RealtimeRobot):
     def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device):
-        # import rospy
-        # from rospy import Subscriber, Rate
-        # from sensor_msgs.msg import JointState
+        import rospy
+        from rospy import Subscriber, Rate
+        from sensor_msgs.msg import JointState
 
         super().__init__(markers_path, data_dir, classify, ckpts_path, seq, device, robot_type="franka")
-        # rospy.init_node("save_franka_state")
-        # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
-        # self.save_rate = Rate(30)
+        rospy.init_node("save_franka_state")
+        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        self.save_rate = Rate(30)
         self.current_state = None
+        # self.idx = 0
     
     def joint_callback(self, state):
         self.current_state = state
 
     def update_vis(self):
-        # if self.current_state is None:
-        #     return
+        if self.current_state is None:
+            return
         self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
         joint_position = self.current_state.position
+        # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
         joint_torque = self.current_state.effort
-        # state = np.hstack([joint_torque[:7], joint_position[:7]], )
-        states = np.load("../data/franka_right/test1/1.npy", allow_pickle=True)
-        state = states[0]
-        # self.save_rate.sleep()
+        state = np.hstack([joint_torque[:7], joint_position[:7]], )
+        # states = np.load("../data/franka_right/test12/1.npy", allow_pickle=True)
+        # if self.idx >= len(states):
+            # self.idx = 0
+        # state = states[self.idx]
+        state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
+        # self.idx += 1
+        self.save_rate.sleep()
 
         self.data_buffer[0] = state
         print(f"Processed data shape: {state.shape}")
@@ -459,7 +462,7 @@ def main():
     elif robot_type == 'franka':
         realtime_robot = RealtimeFranka(markers_path, data_dir, classify, options.ckpts_path, seq, device)
     # Create buffers
-    data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.95, sliding_win=3)
+    data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.7, sliding_win=10)
 
     try:
         while True:
