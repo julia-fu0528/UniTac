@@ -9,6 +9,9 @@ from scipy.spatial import cKDTree
 from natsort import natsorted
 from urdfpy import URDF
 import matplotlib.pyplot as plt
+import lightning as L
+
+from dataset import SpotDataModule
 
 import torch
 from network import LitRobot
@@ -34,6 +37,9 @@ class RealtimeRobot:
         # Load marker positions
         self.markers_pos = np.loadtxt(markers_path, delimiter=",")
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(self.markers_pos)}
+        self.rev_marker_positions = {
+            tuple(np.round(v.astype(np.float32), decimals=4)): k for k, v in self.marker_positions.items()}
+        self.marker_posarray = np.array(list(self.marker_positions.values()))
         print(f"Loaded marker positions: {self.marker_positions}")
         # sys.exit()
 
@@ -93,9 +99,18 @@ class RealtimeRobot:
             robot_type=self.robot_type,
             map_location=torch.device(self.device)
         )
-        trainer = L.Trainer()
-        trainer.test(model, your_test_dataloader)
-        sys.exit()
+        # data_module = SpotDataModule(
+        #     classify=False,  # True or False depending on your model
+        #     seq=1,  # The sequence length you used during training
+        #     robot_type='franka',  # 'spot' or 'franka'
+        #     batch_size=32  # You can adjust this as needed
+        # )
+        # data_module.se/tup()
+        # test_dataloader = data_module.test_dataloader()
+
+        # trainer = L.Trainer()
+        # trainer.test(model, test_dataloader)
+        # sys.exit()
         model.to(self.device)
         model.eval()
         return model
@@ -158,14 +173,23 @@ class RealtimeRobot:
 
 
     def vis_prediction(self, pos, threshold=0.1):
-        # pos = np.array([0.03444629, 0.0472558 , 0.4486532 ])
+        # pos = np.array([-0.02387589, -0.04341407,  0.4468466 ])
         # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
         print(f"pos: {pos}")
+
+        # calculate the distance from y_hat_pos to all the marker positions
+        distances = np.linalg.norm(self.marker_posarray - pos, axis=1)
+        min_indices = np.argmin(distances)
+        min_indices = torch.tensor([min_indices], dtype=torch.long).to(self.device)
+        y_hat_label = min_indices
+
+        print(f"y_hat_label: {y_hat_label}")
+
         for pcd, orig_color in zip(self.visualizer.point_clouds, self.original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
         cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos, radius=0.02)
-        print(f"cur_marker_pcd_indices: {cur_marker_pcd_indices}")
+        # print(f"cur_marker_pcd_indices: {cur_marker_pcd_indices[0]}")
         for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
             colors = np.asarray(self.visualizer.point_clouds[pcd_idx].colors)
             colors[local_idx] = [1, 0, 0]
@@ -387,35 +411,36 @@ class RealtimeSpot(RealtimeRobot):
 
 class RealtimeFranka(RealtimeRobot):
     def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device):
-        import rospy
-        from rospy import Subscriber, Rate
-        from sensor_msgs.msg import JointState
+        # import rospy 
+        # from rospy import Subscriber, Rate
+        # from sensor_msgs.msg import JointState
 
         super().__init__(markers_path, data_dir, classify, ckpts_path, seq, device, robot_type="franka")
-        rospy.init_node("save_franka_state")
-        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
-        self.save_rate = Rate(30)
+        # rospy.init_node("save_franka_state")
+        # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        # self.save_rate = Rate(30)
         self.current_state = None
-        # self.idx = 0
+        self.idx = 0
     
     def joint_callback(self, state):
         self.current_state = state
 
     def update_vis(self):
-        if self.current_state is None:
-            return
+        # if self.current_state is None:
+            # return
         self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
-        joint_position = self.current_state.position
-        # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
-        joint_torque = self.current_state.effort
-        state = np.hstack([joint_torque[:7], joint_position[:7]], )
-        # states = np.load("../data/franka_right/test12/1.npy", allow_pickle=True)
-        # if self.idx >= len(states):
-            # self.idx = 0
-        # state = states[self.idx]
+        # joint_position = self.current_state.position
+        joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
+        # joint_torque = self.current_state.effort
+        # state = np.hstack([joint_torque[:7], joint_position[:7]], )
+        states = np.load("../data/franka_right/test12/9.npy", allow_pickle=True)
+        if self.idx >= len(states):
+            self.idx = 0
+        state = states[self.idx]
         state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
-        # self.idx += 1
-        self.save_rate.sleep()
+        print(f"state.shape: {state.shape}")
+        self.idx += 1
+        # self.save_rate.sleep()
 
         self.data_buffer[0] = state
         print(f"Processed data shape: {state.shape}")

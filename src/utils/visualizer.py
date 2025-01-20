@@ -11,8 +11,9 @@ class RobotVisualizer():
         self.prev_fks = []
         self.default_pcds = []
         self.point_clouds = []
-        self.points_per_mesh = 300
         self.robot_type = robot_type
+
+        self.points_per_mesh = 300 if robot_type == "spot" else 3000
         self.robot = URDF.load(f"../{robot_type}_description/{robot_type}.urdf")
         
         # for markers
@@ -61,7 +62,7 @@ class RobotVisualizer():
 
             o3d_mesh.transform(trimesh_fk[tm])
             self.prev_fks.append(trimesh_fk[tm]) # world -> T1
-            if len(tm.vertices) > 1000:
+            if len(tm.vertices) > 1000 and self.robot_type == "spot":
                 pcd = o3d_mesh.sample_points_uniformly(number_of_points=90 * self.points_per_mesh)
             else:
                 pcd = o3d_mesh.sample_points_uniformly(number_of_points=self.points_per_mesh)
