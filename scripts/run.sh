@@ -9,7 +9,7 @@
 # echo "################# DATALOADER ###############################"
 # python dataset.py --session franka_right --data_dir ../data \
 #                     --markers_path ../data/franka_10markers_pos.txt \
-#                     --seq 1  --robot_type franka --classify \
+#                     --seq 1  --robot_type franka  \
 
 # echo "################# TRAINING ###############################"
 # python train.py --session franka_right --data_dir ../data \

@@ -18,6 +18,8 @@ from argparse import ArgumentParser
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
+from sklearn.preprocessing import MinMaxScaler
+
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
@@ -32,6 +34,7 @@ class JointLabel:
         self.training_labels = []
         self.validation_data = []
         self.validation_labels = []
+        self.scaler = MinMaxScaler(feature_range=(-1, 1))
         
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
@@ -85,6 +88,13 @@ class JointLabel:
         for val_dir in val_dirs:
             self.load_data(val_dir, mode='val')
         
+        all_data = self.training_data + self.validation_data
+        all_data = np.array(all_data)
+        self.scaler.fit(all_data)
+        self.training_data = self.scaler.transform(self.training_data)
+        self.validation_data = self.scaler.transform(self.validation_data)
+
+        
         print(f"Finished data preprocessing")
     
     def load_data(self, dir, mode='train'):
@@ -102,19 +112,23 @@ class JointLabel:
                         state = np.load(torque_path, allow_pickle=True)
                         if torque_file.split(".")[0] == 'no_contact':
                             state = state[:60]
+                        # normalized_data = state
                     elif self.robot_type == 'spot':
                         torque, _, _, _ = load_joint_torques(torque_path)
                         joint_angle, _, _, _ = load_joint_positions(torque_path)
                         state = np.hstack((torque, joint_angle))
-                    normalized_data = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
-                    for joint_data in normalized_data:
+                        # normalized_data = 2 * ((state - state.min()) / 
+                        #                         (state.max() - state.min())) - 1
+                    # normalized_data = 2 * ((state - state.min(axis=1, keepdims=True)) / 
+                    #                         (state.max(axis=1, keepdims=True) - state.min(axis=1, keepdims=True))) - 1
+                    for joint_data in state:
                         if mode == 'train':
                             self.training_data.append(joint_data)
                         else:
                             self.validation_data.append(joint_data)
                     if self.classify:
                         label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
-                    for i in range(len(normalized_data)):
+                    for i in range(len(state)):
                         if mode == 'train':
                             self.training_labels.append(label)
                         else:
@@ -131,6 +145,8 @@ class SpotDataset(Dataset):
         folder_path = Path(__file__).parent.parent
         self.joint_data = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
         self.contact_labels = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
+        self.data_min = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_min_{seq}.npy", allow_pickle=True)
+        self.data_max = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_max_{seq}.npy", allow_pickle=True)
         # self.joint_data = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
         # self.contact_labels = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
 
@@ -160,11 +176,16 @@ class SpotDataset(Dataset):
         else:
             joint_data = self.joint_data[idx]
             contact_label = self.contact_labels[idx]   
+        
+        # joint_data = self.normalize_data(joint_data)
 
         return {
             "joint_data": joint_data,
             "contact_label": contact_label
         }
+
+    def normalize_data(self, data):
+        return 2 * ((data - self.data_min) / (self.data_max - self.data_min)) - 1
 
 class SpotDataModule(L.LightningDataModule):
     def __init__(self, classify, seq, robot_type, batch_size=32) -> None:
@@ -248,6 +269,9 @@ if __name__ == "__main__":
     np.save(os.path.join(save_dir,f"train_contact_labels_{seq}.npy"), training_labels)
     np.save(os.path.join(save_dir,f"val_joint_data_{seq}.npy"), joint_label.validation_data)
     np.save(os.path.join(save_dir,f"val_contact_labels_{seq}.npy"), validation_labels)
+    np.save(os.path.join(save_dir, f"data_min_{seq}.npy"), joint_label.scaler.data_min_)
+    np.save(os.path.join(save_dir, f"data_max_{seq}.npy"), joint_label.scaler.data_max_)
+
     print(f"Training and validation data saved to {save_dir}")
 
     train_dataset = SpotDataset(dataset_mode, seq = seq, robot_type = robot_type, mode='train')

@@ -99,18 +99,9 @@ class RealtimeRobot:
             robot_type=self.robot_type,
             map_location=torch.device(self.device)
         )
-        # data_module = SpotDataModule(
-        #     classify=False,  # True or False depending on your model
-        #     seq=1,  # The sequence length you used during training
-        #     robot_type='franka',  # 'spot' or 'franka'
-        #     batch_size=32  # You can adjust this as needed
-        # )
-        # data_module.se/tup()
-        # test_dataloader = data_module.test_dataloader()
-
-        # trainer = L.Trainer()
-        # trainer.test(model, test_dataloader)
-        # sys.exit()
+        trainer = L.Trainer()
+        trainer.test(model, your_test_dataloader)
+        sys.exit()
         model.to(self.device)
         model.eval()
         return model
