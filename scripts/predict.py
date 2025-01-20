@@ -427,14 +427,14 @@ class RealtimeSpot(RealtimeRobot):
 
 class RealtimeFranka(RealtimeRobot):
     def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device):
-        # import rospy 
-        # from rospy import Subscriber, Rate
-        # from sensor_msgs.msg import JointState
+        import rospy 
+        from rospy import Subscriber, Rate
+        from sensor_msgs.msg import JointState
 
         super().__init__(markers_path, data_dir, classify, ckpts_path, seq, device, robot_type="franka")
-        # rospy.init_node("save_franka_state")
-        # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
-        # self.save_rate = Rate(30)
+        rospy.init_node("save_franka_state")
+        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        self.save_rate = Rate(30)
         self.current_state = None
         self.idx = 0
     
@@ -442,23 +442,23 @@ class RealtimeFranka(RealtimeRobot):
         self.current_state = state
 
     def update_vis(self):
-        # if self.current_state is None:
-            # return
+        if self.current_state is None:
+            return
         self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
-        # joint_position = self.current_state.position
-        joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
-        # joint_torque = self.current_state.effort
-        # state = np.hstack([joint_torque[:7], joint_position[:7]], )
-        states = np.load("../data/franka_right/test12/no_contact.npy", allow_pickle=True)
-        if self.idx >= len(states):
-            self.idx = 0
-        state = states[self.idx]
+        joint_position = self.current_state.position
+        # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
+        joint_torque = self.current_state.effort
+        state = np.hstack([joint_torque[:7], joint_position[:7]], )
+        # states = np.load("../data/franka_right/test12/no_contact.npy", allow_pickle=True)
+        # if self.idx >= len(states):
+            # self.idx = 0
+        # state = states[self.idx]
         state = self.normalize_data(state)
         # state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
 
         print(f"state.shape: {state.shape}")
-        self.idx += 1
-        # self.save_rate.sleep()
+        # self.idx += 1
+        self.save_rate.sleep()
 
         self.data_buffer[0] = state
         print(f"Processed data shape: {state.shape}")
