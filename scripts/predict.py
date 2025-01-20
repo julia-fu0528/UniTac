@@ -33,6 +33,13 @@ class RealtimeRobot:
         self.seq = seq
         self.device = device
         self.robot_type = robot_type
+        if self.classify:
+            self.dataset_mode = "classification"
+        else:
+            self.dataset_mode = "regression"
+
+        self.data_min = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_min_{seq}.npy", allow_pickle=True)
+        self.data_max = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_max_{seq}.npy", allow_pickle=True)
 
         # Load marker positions
         self.markers_pos = np.loadtxt(markers_path, delimiter=",")
@@ -79,6 +86,16 @@ class RealtimeRobot:
         self.original_colors = [np.asarray(pcd.colors).copy() for pcd in self.visualizer.point_clouds]
         # self.visualizer = RobotVisualizer(robot_type=robot_type)
     
+
+
+    def normalize_data(self, data):
+        """
+        Normalize the data using the min-max normalization.
+        """
+        data = 2 * ((data - self.data_min) / (self.data_max - self.data_min)) - 1
+        return data
+    
+
     def load_from_checkpoint(self, input_dim, output_dim):
         """
         Load a model from a checkpoint file.
@@ -99,9 +116,17 @@ class RealtimeRobot:
             robot_type=self.robot_type,
             map_location=torch.device(self.device)
         )
-        trainer = L.Trainer()
-        trainer.test(model, your_test_dataloader)
-        sys.exit()
+        # data_module = SpotDataModule(
+        #     classify=self.classify,
+        #     seq=self.seq,
+        #     robot_type=self.robot_type,
+        #     batch_size=32  # Adjust as needed
+        # )
+        # data_module.setup()
+        # test_dataloader = data_module.test_dataloader()
+        # trainer = L.Trainer()
+        # trainer.test(model, test_dataloader)
+        # sys.exit()
         model.to(self.device)
         model.eval()
         return model
@@ -179,7 +204,7 @@ class RealtimeRobot:
         for pcd, orig_color in zip(self.visualizer.point_clouds, self.original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
-        cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos, radius=0.02)
+        cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos, radius=0.03)
         # print(f"cur_marker_pcd_indices: {cur_marker_pcd_indices[0]}")
         for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
             colors = np.asarray(self.visualizer.point_clouds[pcd_idx].colors)
@@ -424,11 +449,13 @@ class RealtimeFranka(RealtimeRobot):
         joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
         # joint_torque = self.current_state.effort
         # state = np.hstack([joint_torque[:7], joint_position[:7]], )
-        states = np.load("../data/franka_right/test12/9.npy", allow_pickle=True)
+        states = np.load("../data/franka_right/test12/no_contact.npy", allow_pickle=True)
         if self.idx >= len(states):
             self.idx = 0
         state = states[self.idx]
-        state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
+        state = self.normalize_data(state)
+        # state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
+
         print(f"state.shape: {state.shape}")
         self.idx += 1
         # self.save_rate.sleep()
