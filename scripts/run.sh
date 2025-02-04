@@ -6,10 +6,10 @@
 #                             --robot_type franka --duration 2\
 
 
-# echo "################# DATALOADER ###############################"
-# python dataset.py --session franka_right --data_dir ../data \
-#                     --markers_path ../data/franka_10markers_pos.txt \
-#                     --seq 1  --robot_type franka  \
+echo "################# DATALOADER ###############################"
+python dataset.py --session gouger1209 --data_dir ../data \
+                    --markers_path ../data/gouger_markers_pos.txt \
+                    --seq 1  --robot_type spot  \
 
 # echo "################# TRAINING ###############################"
 # python train.py --session franka_right --data_dir ../data \
@@ -17,11 +17,11 @@
 #                 --seq 1 --robot_type franka 
 
 
-echo "################# PREDICTING ################################"
-python predict.py --ckpts_path ../gouger_logs/spot/regression/version_9/checkpoints/best.ckpt\
-                  --markers_path ../data/gouger_markers_pos.txt --data_dir ../data/gouger1209 --device cpu --seq 1 --robot_type spot\
-                  --hostname 138.16.161.21
-                #   --choreography-filepaths ../choreo/step.txt ../choreo/trot.txt ../choreo/turn_2step.txt ../choreo/twerk.txt ../choreo/unstow.txt\
+# echo "################# PREDICTING ################################"
+# python predict.py --ckpts_path ../gouger_logs/spot/regression/version_9/checkpoints/best.ckpt\
+#                   --markers_path ../data/gouger_markers_pos.txt --data_dir ../data/gouger1209 --device cpu --seq 1 --robot_type spot\
+#                   --hostname 138.16.161.21
+#                 #   --choreography-filepaths ../choreo/step.txt ../choreo/trot.txt ../choreo/turn_2step.txt ../choreo/twerk.txt ../choreo/unstow.txt\
 
 
 
