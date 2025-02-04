@@ -6,6 +6,7 @@
 #                             --robot_type franka --duration 2\
 
 
+
 echo "################# DATALOADER ###############################"
 python dataset.py --session gouger1209 --data_dir ../data \
                     --markers_path ../data/gouger_markers_pos.txt \
@@ -22,7 +23,6 @@ python dataset.py --session gouger1209 --data_dir ../data \
 #                   --markers_path ../data/gouger_markers_pos.txt --data_dir ../data/gouger1209 --device cpu --seq 1 --robot_type spot\
 #                   --hostname 138.16.161.21
 #                 #   --choreography-filepaths ../choreo/step.txt ../choreo/trot.txt ../choreo/turn_2step.txt ../choreo/twerk.txt ../choreo/unstow.txt\
-
 
 
 
