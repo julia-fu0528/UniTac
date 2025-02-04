@@ -16,15 +16,15 @@ class JointNetwork(nn.Module):
         if classify:
             self.network = nn.Sequential(
                nn.Flatten(),
-                nn.Linear(input_dim, 8),
+                nn.Linear(input_dim, 32),
                 nn.ReLU(), 
-                nn.Dropout(0.3),
+                nn.Dropout(0.5),
 
-                nn.Linear(8,16),
+                nn.Linear(32,32),
                 nn.ReLU(),
-                nn.Dropout(0.3),
+                nn.Dropout(0.5),
 
-                nn.Linear(16, output_dim),
+                nn.Linear(32, output_dim),
                 nn.Softmax(dim=1)
             )
         else:
@@ -75,7 +75,7 @@ class LitRobot(L.LightningModule):
         # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 3e-3
+        self.learning_rate = 4e-3
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
