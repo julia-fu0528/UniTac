@@ -15,16 +15,21 @@ class JointNetwork(nn.Module):
         super().__init__()
         if classify:
             self.network = nn.Sequential(
-               nn.Flatten(),
-                nn.Linear(input_dim, 32),
+                nn.Flatten(),
+                nn.Linear(input_dim, 64),
                 nn.ReLU(), 
-                nn.Dropout(0.5),
 
-                nn.Linear(32,32),
+                nn.Linear(64, 128),
                 nn.ReLU(),
-                nn.Dropout(0.5),
+                nn.Dropout(0.3),
 
-                nn.Linear(32, output_dim),
+                nn.Linear(128, 128),
+                nn.ReLU(),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+
+                nn.Linear(128, output_dim),
                 nn.Softmax(dim=1)
             )
         else:
@@ -33,16 +38,21 @@ class JointNetwork(nn.Module):
                 nn.Linear(input_dim, 64),
                 nn.ReLU(), 
 
-                nn.Linear(64,128),
+                nn.Linear(64,128), 
                 nn.ReLU(),
-                nn.Dropout(0.3), 
-
+                nn.Dropout(0.3),
+                # nn.Linear(256, 128),
+                # nn.ReLU(),
+                # nn.Dropout(0.3),
                 nn.Linear(128, 256),
                 nn.ReLU(),
                 nn.Dropout(0.3),
                 nn.Linear(256, 128),
                 nn.ReLU(),
                 nn.Dropout(0.3),
+                # nn.Linear(128, 128),
+                # nn.ReLU(),
+                # nn.Dropout(0.3),
 
                 nn.Linear(128, output_dim)
                 
@@ -75,7 +85,7 @@ class LitRobot(L.LightningModule):
         # self.device = device   
 
         self.classify = classify
-        self.learning_rate = 4e-3
+        self.learning_rate = 3e-3
 
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
