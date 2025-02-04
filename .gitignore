@@ -7,3 +7,4 @@ src/vis/*
 preprocessed_data/*
 gouger_logs/*
 scripts/__pycache__/*
+scripts/spot_description/__pycache__/*
