@@ -1,0 +1,22 @@
+name: "tilt_left_back"
+slices_per_minute: 480.0
+moves {
+  type: "rotate_body"
+  requested_slices: 24
+  rotate_body_params {
+    rotation {
+      roll {
+        value: -0.13
+      }
+      pitch {
+        value: 0.13
+      }
+      yaw {
+        value: 0.15
+      }
+    }
+    return_to_start_pose {
+      value: true
+    }
+  }
+}

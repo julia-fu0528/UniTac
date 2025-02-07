@@ -1,8 +1,0 @@
-name: "trot"
-slices_per_minute: 60.0
-
-moves {
-  type: "trot"
-  start_slice: 0
-  requested_slices: 5
-}

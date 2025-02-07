@@ -1,0 +1,35 @@
+name: "sit"
+slices_per_minute: 480.0
+moves {
+  type: "body_hold"
+  requested_slices: 64
+  body_hold_params {
+    rotation {
+      roll {
+        value: 1e-06
+      }
+      pitch {
+        value: -0.45
+      }
+      yaw {
+        value: 1e-06
+      }
+    }
+    translation {
+      x {
+      }
+      y {
+        value: 0.001236000000000001
+      }
+      z {
+        value: -0.11
+      }
+    }
+    entry_slices {
+      value: 8.777912229999998
+    }
+    exit_slices {
+      value: 7.713
+    }
+  }
+}

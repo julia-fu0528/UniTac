@@ -1,0 +1,49 @@
+name: "step_front_right"
+slices_per_minute: 480.0
+moves {
+  type: "step"
+  requested_slices: 10
+  step_params {
+    foot: LEG_FRONT_RIGHT
+    offset {
+      x {
+      }
+      y {
+      }
+    }
+    second_foot: LEG_NO_LEG
+    swing_waypoint {
+      x {
+        value: -0.06751000000000001
+      }
+      y {
+        value: 1e-06
+      }
+      z {
+        value: 0.092029
+      }
+    }
+    swing_height {
+      value: 1e-06
+    }
+    liftoff_velocity {
+    }
+    touchdown_velocity {
+    }
+    mirror_x {
+    }
+    mirror_y {
+    }
+    waypoint_dwell {
+      value: 0.2499975
+    }
+    touch {
+    }
+    touch_offset {
+      x {
+      }
+      y {
+      }
+    }
+  }
+}

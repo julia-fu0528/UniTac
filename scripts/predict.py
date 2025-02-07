@@ -25,6 +25,25 @@ from src.utils.visualize_mesh import create_viewing_parameters, visualize_with_c
 from src.utils.visualize_robot_state import update_meshes_with_fk, combine_meshes_o3d, create_red_markers, compute_forward_kinematics, find_closest_vertices, load_joint_torques, prepare_trimesh_fk, convert_trimesh_to_open3d
 
 
+
+# imports for SPOT
+from bosdyn.client.robot_state import RobotStateClient
+from bosdyn.client import create_standard_sdk
+import bosdyn.client.util
+
+from bosdyn.api.spot import choreography_sequence_pb2
+from bosdyn.client import create_standard_sdk
+from bosdyn.choreography.client.choreography import (ChoreographyClient,
+                                                            load_choreography_sequence_from_txt_file)
+from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.api import lease_pb2
+from google.protobuf.timestamp_pb2 import Timestamp
+from bosdyn.api import header_pb2
+from bosdyn.client import ResponseError, RpcError, create_standard_sdk
+from bosdyn.client.exceptions import UnauthenticatedError
+from bosdyn.client.license import LicenseClient
+
+
 class RealtimeRobot:
     def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, robot_type):
         self.markers_path = markers_path
@@ -199,7 +218,7 @@ class RealtimeRobot:
         min_indices = torch.tensor([min_indices], dtype=torch.long).to(self.device)
         y_hat_label = min_indices
 
-        print(f"y_hat_label: {y_hat_label}")
+        # print(f"y_hat_label: {y_hat_label}")
 
         for pcd, orig_color in zip(self.visualizer.point_clouds, self.original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
@@ -220,22 +239,6 @@ class RealtimeRobot:
 
 class RealtimeSpot(RealtimeRobot):
     def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, hostname, choreo, choreography_filepaths=None):
-        # imports
-        from bosdyn.client.robot_state import RobotStateClient
-        from bosdyn.client import create_standard_sdk
-        import bosdyn.client.util
-
-        from bosdyn.api.spot import choreography_sequence_pb2
-        from bosdyn.client import create_standard_sdk
-        from bosdyn.choreography.client.choreography import (ChoreographyClient,
-                                                            load_choreography_sequence_from_txt_file)
-        from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-        from bosdyn.api import lease_pb2
-        from google.protobuf.timestamp_pb2 import Timestamp
-        from bosdyn.api import header_pb2
-        from bosdyn.client import ResponseError, RpcError, create_standard_sdk
-        from bosdyn.client.exceptions import UnauthenticatedError
-        from bosdyn.client.license import LicenseClient
         
         super().__init__(markers_path, data_dir, classify, ckpts_path, seq, device, robot_type="spot")
         self.hostname = hostname
@@ -260,7 +263,6 @@ class RealtimeSpot(RealtimeRobot):
         robot = sdk.create_robot(hostname)
         bosdyn.client.util.authenticate(robot)
         self.robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-        
         if self.choreo:
             # License 
             license_client = self.init_license(robot)
@@ -299,6 +301,7 @@ class RealtimeSpot(RealtimeRobot):
                 print(f'Failed to load choreography. Raised exception: {excep}')
                 return True
         # upload the routine to the robot
+        print(f"self.choreos:{self.choreos}")
         for choreo in self.choreos:
             try:
                 upload_response = choreography_client.upload_choreography(choreo,
@@ -327,6 +330,7 @@ class RealtimeSpot(RealtimeRobot):
 
         # Preprocess the data for inference
         processed_data = self.preprocess_realtime_data(state, normalize=True)
+        processed_data = self.normalize_data(processed_data)
         self.data_buffer[0] = processed_data
 
         joint_positions = {joint.name: 0.0 for joint in self.visualizer.robot.joints}
@@ -339,7 +343,29 @@ class RealtimeSpot(RealtimeRobot):
                 print(f"Joint {joint_info['name']} not found in URDF.")
         self.visualizer.visualize(cfg=joint_positions)
 
+    # def update_vis(self):
+    #     if self.current_state is None:
+    #         return
+    #     self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
+    #     joint_position = self.current_state.position
+    #     # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
+    #     joint_torque = self.current_state.effort
+    #     state = np.hstack([joint_torque[:7], joint_position[:7]], )
+    #     # states = np.load("../data/franka_right/test12/no_contact.npy", allow_pickle=True)
+    #     # if self.idx >= len(states):
+    #         # self.idx = 0
+    #     # state = states[self.idx]
+    #     state = self.normalize_data(state)
+    #     # state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
 
+    #     print(f"state.shape: {state.shape}")
+    #     # self.idx += 1
+    #     self.save_rate.sleep()
+
+    #     self.data_buffer[0] = state
+    #     print(f"Processed data shape: {state.shape}")
+    #     cfg = {joint: joint_position[idx] for idx, joint in enumerate(self.visualizer.robot.actuated_joint_names)}
+    #     self.visualizer.visualize(cfg=cfg)
         
 
     def preprocess_realtime_data(self, data, normalize=True):
@@ -366,8 +392,8 @@ class RealtimeSpot(RealtimeRobot):
                 pos_data[0, j] = joint['position']
                 joint_names.append(joint['name'])
         data = np.hstack((torque_data, pos_data))
-        if normalize:
-            data = 2 * ((data - data.min()) / (data.max() - data.min())) - 1
+        # if normalize:
+            # data = 2 * ((data - data.min()) / (data.max() - data.min())) - 1
         data_processed = np.array(data)
 
         return data_processed
@@ -397,28 +423,92 @@ class RealtimeSpot(RealtimeRobot):
         time.sleep(estimated_time_seconds + 1.0)
 
     def respond(self, pos, threshold=1):
-        distance = np.linalg.norm(pos - self.coordinates.get(str(len(self.markers_pos))))
-        print(f"pos: {pos}, distance: {distance}")
-        # if distance < threshold:
-        # # step, trot, turn_2step, twerk, unstow
-        # left
-        if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-            self.exe_choreo(self.choreos[0]) # step
-        # right
-        elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-            self.exe_choreo(self.choreos[1]) # trot
-        # front
-        elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
-            self.exe_choreo(self.choreos[2]) # turn_2step
-        # back
-        elif pos[0] < -0.45 and pos[2] < 0.1:
-        # and -0.14 < pos[1] < 0.14:
-            self.exe_choreo(self.choreos[3]) # twerk
         # top
-        elif pos[2] > 0.11:
-            self.exe_choreo(self.choreos[4]) # unstow
-        # else: 
-        #     continue
+        if pos[2] > 0.072 and pos[0] > -0.1 and -0.9 < pos[1] < 0.9:
+            print(f"Back (Top) - lay down")
+            self.exe_choreo(self.choreos[0])
+            # time.sleep(1)
+        elif pos[2] > 0.072 and pos[0] <= -0.1 and -0.9 < pos[1] < 0.9:
+            print(f"Back (Hip) - sit")
+            self.exe_choreo(self.choreos[1])
+            # time.sleep(1)
+        # side top
+        elif pos[2] > -0.01 and pos[1] > 0.09 and pos[0] < 0.06:
+            print(f"Back side (Left) - pace right")
+            self.exe_choreo(self.choreos[2])
+            # time.sleep(1)
+        elif pos[2] > 0 and pos[1] > 0.09 and pos[0] >= 0.06:
+            print(f"Front side (Left) - turn right")
+            self.exe_choreo(self.choreos[3])
+            # time.sleep(1)
+        elif pos[2] > -0.01 and pos[1] < -0.09 and pos[0] < 0.06:
+            print(f"Back side (Right) - pace left")
+            self.exe_choreo(self.choreos[4])
+            # time.sleep(1)
+        elif pos[2] > 0 and pos[1] < -0.09 and pos[0] >= 0.06:
+            print(f"Front side (Right) - turn left")
+            self.exe_choreo(self.choreos[5])
+            # time.sleep(1)
+        # side bottom
+        elif pos[2] < -0.01 and pos[1] > 0.09 and pos[0] < 0.06:
+            print(f"Back abdomen (Left) - tilt hip right up")
+            self.exe_choreo(self.choreos[6])
+            # time.sleep(1)
+        elif pos[2] < 0 and pos[1] > 0.09 and pos[0] >= 0.06:
+            print(f"Front abdomen (Left) - tilt front right up")
+            self.exe_choreo(self.choreos[7])
+            # time.sleep(1)
+        elif pos[2] < -0.01 and pos[1] < -0.09 and pos[0] < 0.06:
+            print(f"Back abdomen (Right) - tilt hip left up")
+            self.exe_choreo(self.choreos[8])
+            # time.sleep(1)
+        elif pos[2] < 0 and pos[1] < -0.09 and pos[0] >= 0.06:
+            print(f"Front abdomen (Right) - tilt front left up")
+            self.exe_choreo(self.choreos[9])
+            # time.sleep(1)
+        # abdomen (right, front) seems to require more force than side
+        # back
+        elif pos[0] < -0.12 and pos[1] > -0.01:
+            print(f"Hip left - step back left")
+            self.exe_choreo(self.choreos[10])
+            # time.sleep(1)
+        elif pos[0] < -0.12 and pos[1] < -0.01:
+            print(f"Hip right - step back right")
+            self.exe_choreo(self.choreos[11])
+            # time.sleep(1)
+        # front
+        elif pos[0] > 0.41 and pos[1] > -0.01:
+            print(f"Head left - step front left")
+            self.exe_choreo(self.choreos[12])
+            # time.sleep(1)
+        elif pos[0] > 0.41 and pos[1] < -0.01:
+            print(f"Front right - step front right")
+            self.exe_choreo(self.choreos[13])
+            # time.sleep(1)
+
+        if False:
+            distance = np.linalg.norm(pos - self.coordinates.get(str(len(self.markers_pos))))
+            print(f"pos: {pos}, distance: {distance}")
+            # if distance < threshold:
+            # # step, trot, turn_2step, twerk, unstow
+            # left
+            if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
+                self.exe_choreo(self.choreos[0]) # step
+            # right
+            elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
+                self.exe_choreo(self.choreos[1]) # trot
+            # front
+            elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
+                self.exe_choreo(self.choreos[2]) # turn_2step
+            # back
+            elif pos[0] < -0.45 and pos[2] < 0.1:
+            # and -0.14 < pos[1] < 0.14:
+                self.exe_choreo(self.choreos[3]) # twerk
+            # top
+            elif pos[2] > 0.11:
+                self.exe_choreo(self.choreos[4]) # unstow
+            # else: 
+            #     continue
 
 
 
@@ -508,10 +598,12 @@ def main():
     elif robot_type == 'franka':
         realtime_robot = RealtimeFranka(markers_path, data_dir, classify, options.ckpts_path, seq, device)
     # Create buffers
-    data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.7, sliding_win=10)
+    data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.8, sliding_win=10)
 
     try:
+        idx = 0
         while True:
+            idx += 1
             # Real-time prediction
             realtime_robot.update_vis()
             pos = realtime_robot.predict()
@@ -519,7 +611,8 @@ def main():
             realtime_robot.vis_prediction(pos)
             if robot_type == 'spot' and options.choreo:
                 # Respond to the predictions
-                realtime_robot.respond(pos)
+                if idx > 100:
+                    realtime_robot.respond(pos)
     except KeyboardInterrupt:
         print("Exiting real-time inference...")
     except Exception as e:

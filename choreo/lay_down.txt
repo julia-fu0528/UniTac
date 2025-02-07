@@ -1,0 +1,11 @@
+name: "lay_down"
+slices_per_minute: 480.0
+moves {
+  type: "sit"
+  requested_slices: 32
+}
+moves {
+  type: "stand_up"
+  start_slice: 32
+  requested_slices: 16
+}

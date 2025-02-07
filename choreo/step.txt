@@ -1,8 +1,0 @@
-name: "step"
-slices_per_minute: 160.0
-
-moves {
-  type: "step"
-  start_slice: 0
-  requested_slices: 4
-}

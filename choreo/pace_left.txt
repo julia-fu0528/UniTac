@@ -1,0 +1,25 @@
+name: "pace_left"
+slices_per_minute: 480.0
+moves {
+  type: "goto"
+  requested_slices: 16
+  goto_params {
+    absolute_position {
+      x {
+      }
+      y {
+        value: 0.3
+      }
+    }
+    absolute_yaw {
+    }
+    step_position_stiffness {
+      value: 3.0
+    }
+    duty_cycle {
+      value: 0.5
+    }
+    link_to_next {
+    }
+  }
+}
