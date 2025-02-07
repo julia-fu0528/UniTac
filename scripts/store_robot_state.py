@@ -14,9 +14,7 @@ from urdfpy import URDF
 import open3d as o3d
 import random
 from pathlib import Path
-import rospy
-from rospy import Subscriber, Rate
-from sensor_msgs.msg import JointState
+
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
@@ -28,35 +26,28 @@ convert_trimesh_to_open3d, create_red_markers, visualize_robot_with_markers, com
 
 
 class Robot:
-    def __init__(self, output_dir, markers_path, robot_type):
-        folder_path =  os.path.join("../", f'{robot_type}_description')
+    def __init__(self, output_dir, markers_path, robot_type, visualizer):
+        self.folder_path =  os.path.join("../", f'{robot_type}_description')
 
         self.output_dir = output_dir
         self.markers_path = markers_path
         self.robot_type = robot_type
-        self.robot = URDF.load(os.path.join(folder_path, f'{robot_type}.urdf'))
+        self.robot = URDF.load(os.path.join(self.folder_path, f'{robot_type}.urdf'))
 
         self.markers_pos = []
         self.markers_dict = {}
-
-        # load robot mesh from urdf
-        joint_positions = {joint.name: 0.0 for joint in self.robot.joints}  # Zero configuration
-        link_fk_transforms = compute_forward_kinematics(self.robot, joint_positions)
-        trimesh_fk, _ = prepare_trimesh_fk(self.robot, link_fk_transforms, folder=folder_path)
-        self.robot_meshes, _ = convert_trimesh_to_open3d(trimesh_fk)
-        self.total_mesh = o3d.geometry.TriangleMesh()
-        for mesh in self.robot_meshes:
-            self.total_mesh += mesh
+        
+        self.visualizer = visualizer
     
-    def save_markers(self, original_colors = None, visualizer=None):
+    def save_markers(self, original_colors = None):
         np.savetxt(self.markers_path, self.markers_pos, delimiter=",", comments="")
 
         # visualize markers
-        if visualizer == None:
+        if self.visualizer == None:
             markers = create_red_markers(self.markers_pos, radius=0.02)
             o3d.visualization.draw_geometries(self.robot_meshes + markers)
         else:
-            for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
+            for pcd, orig_color in zip(self.visualizer.point_clouds, original_colors):
                 pcd.colors = o3d.utility.Vector3dVector(orig_color)
             
             start_time = time.time()
@@ -84,13 +75,39 @@ class Robot:
         return self.markers_dict
     
 class Spot(Robot):
-    def __init__(self, output_dir, markers_path, robot_type, hostname, command):
-        super().__init__(output_dir, markers_path, robot_type)
+    def __init__(self, output_dir, markers_path, robot_type, visualizer, hostname):
+        super().__init__(output_dir, markers_path, robot_type, visualizer)
         self.hostname = hostname
-        self.command = command
+        self.simplified_to_full_name = {'fl.hx': 'front_left_hip_x', 'fr.hx': 'front_right_hip_x',
+            'hl.hx': 'rear_left_hip_x', 'hr.hx': 'rear_right_hip_x', 'fl.hy': 'front_left_hip_y',
+            'fr.hy': 'front_right_hip_y', 'hl.hy': 'rear_left_hip_y', 'hr.hy': 'rear_right_hip_y',
+            'fl.kn': 'front_left_knee', 'fr.kn': 'front_right_knee', 'hl.kn': 'rear_left_knee',
+            'hr.kn': 'rear_right_knee', 'arm0.sh0': 'arm_sh0', 'arm0.sh1': 'arm_sh1',
+            'arm0.el0': 'arm_el0', 'arm0.el1': 'arm_el1', 'arm0.wr0': 'arm_wr0', 'arm0.wr1': 'arm_wr1',
+            'arm0.f1x': 'arm_f1x', 'arm0.hr0': 'arm_hr0'}
+        # load robot mesh from urdf
+        joint_positions = {joint.name: 0.0 for joint in self.robot.joints}  # Zero configuration
         import bosdyn.client
         import bosdyn.client.util
         from bosdyn.client.robot_state import RobotStateClient
+        sdk = bosdyn.client.create_standard_sdk('RobotStateClient')
+        robot = sdk.create_robot(self.hostname)
+        bosdyn.client.util.authenticate(robot)
+        robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
+        state = robot_state_client.get_robot_state()
+        joint_states = state.kinematic_state.joint_states
+        for joint_info in joint_states:
+            joint = self.visualizer.robot.joint_map[self.simplified_to_full_name.get(joint_info.name)]
+            if joint:
+                joint_positions[self.simplified_to_full_name.get(joint_info.name)] = joint_info.position.value
+            else:
+                print(f"Joint {joint_info['name']} not found in URDF.")
+        link_fk_transforms = compute_forward_kinematics(self.robot, joint_positions)
+        trimesh_fk, _ = prepare_trimesh_fk(self.robot, link_fk_transforms, folder=self.folder_path)
+        self.robot_meshes, _ = convert_trimesh_to_open3d(trimesh_fk)
+        self.total_mesh = o3d.geometry.TriangleMesh()
+        for mesh in self.robot_meshes:
+            self.total_mesh += mesh
     
     def choose_markers(self, num_points = 10000):
         markers_pos = [[0.45, 0.06, -0.035],[0.45, -0.07, -0.035], # front
@@ -124,6 +141,14 @@ class Spot(Robot):
             markers_pos.append([-0.40, y, -0.06])
             markers_pos.append([-0.42, y, 0.04])
         markers_pos.extend([[-0.42, -0.07, -0.01], [-0.42, 0.07, -0.01]])
+        # arm
+        # markers_pos.append([0.83, 1, 2.2])
+        # markers_pos.append([0.9, 1.2, 1])  # 0.004 is center
+        # markers_pos.append([0.95, 0.1,  1.2])
+        markers_pos.append([0.83, 0.8, 1.2])
+        markers_pos.append([0.9, 0.2, 1.2])
+        markers_pos.append([0.95, 0.2, 1.2])
+        markers_pos.append([0.97, 1, 0.9])
         markers_pos = np.array(markers_pos)
         self.markers_pos, pos_indices = find_closest_vertices(self.total_mesh, markers_pos, num_points)
         self.markers_dict = {f"{i}": pos for i, pos in enumerate(self.markers_pos)}
@@ -131,33 +156,6 @@ class Spot(Robot):
 
         return self.markers_pos
 
-    def collect_data(self, output_path, duration=10):
-        sdk = bosdyn.client.create_standard_sdk('RobotStateClient')
-        robot = sdk.create_robot(self.hostname)
-        bosdyn.client.util.authenticate(robot)
-        robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-        # Make a robot state request
-        if self.command == 'state':
-            print("Collecting data\n")
-            state = robot_state_client.get_robot_state()
-            # create a dictionary with all the keys the same as state bu the values as empty lists
-            state_dict = []
-            start_time = time.time()
-
-            while time.time() - start_time < duration:
-                state = robot_state_client.get_robot_state()
-                state_dict.append(state)
-            
-            # save data 
-            print(f"Data collection complete, saved in {output_path}\n")
-            np.save(output_path, state_dict)
-
-        elif self.command == 'hardware':
-            print(robot_state_client.get_hardware_config_with_link_info())
-        elif self.command == 'metrics':
-            print(robot_state_client.get_robot_metrics())
-
-        return True
     
     def vis_markers(self, idx, pos):
         # Create marker for current position
@@ -181,15 +179,71 @@ class Spot(Robot):
             up = np.array([0.0, 1.0, 0.0])
         o3d.visualization.draw_geometries(geometries, zoom=0.5, front = -front, lookat=pos, up = up)
 
-    def save_data(self, idx, output_path, duration=10):
-        # user_input = input(f"Is marker position {idx} legit? Enter 'y' for yes, 'n' for no (default: 'y'): \n").strip().lower()
-        # if user_input == 'n':
-        #     print(f"Marker position {idx} deemed not legit. Skipping this marker...\n")
-        #     continue
-        output_path = os.path.join(self.output_dir, f"{idx}.npy")
-        print(f"YOU CAN TOUCH THE SPOT NOW. Data collection will start in 5 seconds, please make sure you are touching the Spot.\n")
-        time.sleep(2)
-        self.collect_data(output_path, self.hostname, self.command, duration)
+    def save_data(self, idx, output_path, original_colors, duration=2):
+        import bosdyn.client
+        import bosdyn.client.util
+        from bosdyn.client.robot_state import RobotStateClient
+        sdk = bosdyn.client.create_standard_sdk('RobotStateClient')
+        robot = sdk.create_robot(self.hostname)
+        bosdyn.client.util.authenticate(robot)
+        robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
+        
+        if idx != -1:
+            output_path = os.path.join(self.output_dir, f"{idx}.npy")
+        else:
+            output_path = os.path.join(self.output_dir, f"no_contact.npy")
+        # create a dictionary with all the keys the same as state bu the values as empty lists
+        state_dict = []
+
+        for pcd, orig_color in zip(self.visualizer.point_clouds, original_colors):
+            pcd.colors = o3d.utility.Vector3dVector(orig_color)
+
+        # VISUALIZE
+        state = robot_state_client.get_robot_state()
+
+        joint_positions = {joint.name: 0.0 for joint in self.visualizer.robot.joints}
+        joint_states = state.kinematic_state.joint_states
+        for joint_info in joint_states:
+            joint = self.visualizer.robot.joint_map[self.simplified_to_full_name.get(joint_info.name)]
+            if joint:
+                joint_positions[self.simplified_to_full_name.get(joint_info.name)] = joint_info.position.value
+            else:
+                print(f"Joint {joint_info['name']} not found in URDF.")
+        self.visualizer.visualize(cfg=joint_positions)
+
+        if idx != -1:
+            pcd_indices = self.visualizer.pcd_indices[int(idx)]
+            local_indices = self.visualizer.local_indices[int(idx)]
+            cur_pcd = self.visualizer.point_clouds[pcd_indices[0]]
+            points = np.asarray(cur_pcd.points)
+            pos = points[local_indices[0]]
+            if not cur_pcd.has_normals():
+                cur_pcd.compute_normals()
+            normals = np.asarray(cur_pcd.normals)
+            normal = normals[local_indices[0]]
+
+            for pcd_idx, local_idx in zip(pcd_indices, local_indices):
+                colors = np.asarray(cur_pcd.colors)
+                colors[local_idx] = [1, 0, 0]
+                self.visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+            o3d.visualization.draw_geometries(self.visualizer.point_clouds, zoom=0.7, front = normal, lookat=pos, up = [0, 0, 1])
+
+            print(f"YOU CAN TOUCH THE ROBOT NOW. Data collection will start right away, please make sure you are touching the Robot.\n")
+        else:
+            o3d.visualization.draw_geometries(self.visualizer.point_clouds, zoom = 0.7, front = [1, 0, 0], lookat=[0, 0, 0.5], up = [0, 1, 0])
+            print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
+
+        print("Collecting data\n")
+        
+        start_time = time.time()
+        while time.time() - start_time < duration:          
+            state = robot_state_client.get_robot_state()
+            state_dict.append(state)
+        
+        # save data 
+        print(f"Data collection complete, saved in {output_path}\n")
+        np.save(output_path, state_dict)
+
         print(f"Touch Data Collected for marker position {idx}, saved in {output_path}\n")
 
 
@@ -200,14 +254,27 @@ class Spot(Robot):
 
 class Franka(Robot):
     def __init__(self, output_dir, markers_path, robot_type):
+        import rospy
+        from rospy import Subscriber, Rate
+        from sensor_msgs.msg import JointState
+
         super().__init__(output_dir, markers_path, robot_type)
         rospy.init_node("save_franka_state")
         self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
         self.save_rate = Rate(30)
         self.current_state = None
 
-    def joint_callback(self, state: JointState):
-        self.current_state = state
+         # load robot mesh from urdf
+        joint_positions = {joint.name: 0.0 for joint in self.robot.joints}  # Zero configuration
+        link_fk_transforms = compute_forward_kinematics(self.robot, joint_positions)
+        trimesh_fk, _ = prepare_trimesh_fk(self.robot, link_fk_transforms, folder=self.folder_path)
+        self.robot_meshes, _ = convert_trimesh_to_open3d(trimesh_fk)
+        self.total_mesh = o3d.geometry.TriangleMesh()
+        for mesh in self.robot_meshes:
+            self.total_mesh += mesh
+
+    # def joint_callback(self, state: JointState):
+        # self.current_state = state
 
     def choose_markers(self, num_points = 10000):
         # x: 0.05 (-0.03 ~ 0.08) y: 0.02 (-0.005 ~ 0.05) -- sides, z: 0.5 (0.14 ~ 0.98) --height
@@ -259,7 +326,7 @@ class Franka(Robot):
         o3d.visualization.draw_geometries(geometries)
 
 
-    def save_data(self, idx, output_path, original_colors, duration=2, visualizer=None):
+    def save_data(self, idx, output_path, original_colors, duration=2):
 
         if idx != -1:
             output_path = os.path.join(self.output_dir, f"{idx}.npy")
@@ -268,19 +335,19 @@ class Franka(Robot):
         # create a dictionary with all the keys the same as state bu the values as empty lists
         state_dict = []
 
-        for pcd, orig_color in zip(visualizer.point_clouds, original_colors):
+        for pcd, orig_color in zip(self.visualizer.point_clouds, original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
         # VISUALIZE
         joint_position = self.current_state.position
         # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74])
-        cfg = {joint: joint_position[idx] for idx, joint in enumerate(visualizer.robot.actuated_joint_names)}
-        visualizer.visualize(cfg=cfg)
+        cfg = {joint: joint_position[idx] for idx, joint in enumerate(self.visualizer.robot.actuated_joint_names)}
+        self.visualizer.visualize(cfg=cfg)
         if idx != -1:
-            pcd_indices = visualizer.pcd_indices[int(idx)]
-            local_indices = visualizer.local_indices[int(idx)]
+            pcd_indices = self.visualizer.pcd_indices[int(idx)]
+            local_indices = self.visualizer.local_indices[int(idx)]
 
-            cur_pcd = visualizer.point_clouds[pcd_indices[0]]
+            cur_pcd = self.visualizer.point_clouds[pcd_indices[0]]
             points = np.asarray(cur_pcd.points)
             pos = points[local_indices[0]]
             if not cur_pcd.has_normals():
@@ -291,12 +358,12 @@ class Franka(Robot):
             for pcd_idx, local_idx in zip(pcd_indices, local_indices):
                 colors = np.asarray(cur_pcd.colors)
                 colors[local_idx] = [1, 0, 0]
-                visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
-            o3d.visualization.draw_geometries(visualizer.point_clouds, zoom=0.7, front = normal, lookat=pos, up = [0, 0, 1])
+                self.visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
+            o3d.visualization.draw_geometries(self.visualizer.point_clouds, zoom=0.7, front = normal, lookat=pos, up = [0, 0, 1])
 
             print(f"YOU CAN TOUCH THE ROBOT NOW. Data collection will start right away, please make sure you are touching the Robot.\n")
         else:
-            o3d.visualization.draw_geometries(visualizer.point_clouds, zoom = 0.7, front = [1, 0, 0], lookat=[0, 0, 0.5], up = [0, 1, 0])
+            o3d.visualization.draw_geometries(self.visualizer.point_clouds, zoom = 0.7, front = [1, 0, 0], lookat=[0, 0, 0.5], up = [0, 1, 0])
             print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
 
         print("Collecting data\n")
@@ -319,15 +386,12 @@ class Franka(Robot):
 def main():
     import argparse
 
-    commands = {'state', 'hardware', 'metrics'}
-
     parser = argparse.ArgumentParser()
     try:
         bosdyn.client.util.add_base_arguments(parser)
     except:
         pass
 
-    parser.add_argument('command', choices=list(commands), help='Command to run')
     parser.add_argument('--hostname', required=False, help='Hostname of the robot')
     parser.add_argument('--output_dir', required=True, help='Output directory for data')
     parser.add_argument('--markers_path', required=True, help='Path to markers positions')
@@ -340,48 +404,50 @@ def main():
     robot_type = options.robot_type
     duration = options.duration
     os.makedirs(output_dir, exist_ok=True)
+
+    vis = o3d.visualization.Visualizer() 
+    vis.create_window()
+    # visualizer = SpotVisualizer(robot_type = "franka", vis=vis)
+    visualizer = RobotVisualizer(robot_type = robot_type)
     
     if robot_type == 'spot':
         # Create robot object with an image client.
         hostname = options.hostname
-        command = options.command
-        robot = Spot(output_dir, markers_path, robot_type, hostname, command)
-        markers_positions = robot.load_markers()
+        robot = Spot(output_dir, markers_path, robot_type, visualizer=visualizer, hostname=hostname)
+        # markers_positions = robot.load_markers()
+        robot.markers_pos = robot.choose_markers()
     elif robot_type == 'franka':
-        robot = Franka(output_dir, markers_path, robot_type)
+        robot = Franka(output_dir, markers_path, robot_type, visualizer=visualizer)
         markers_pos = robot.choose_markers()
 
         markers = create_red_markers(markers_pos, radius=0.02)
         selected_idx = [6, 13, 27, 30, 40, 59, 67, 76, 80, 92]
         robot.markers_pos = [robot.markers_pos[i] for i in selected_idx]
 
-        vis = o3d.visualization.Visualizer() 
-        vis.create_window()
-        # visualizer = SpotVisualizer(robot_type = "franka", vis=vis)
-        visualizer = RobotVisualizer(robot_type = "franka")
-        original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
-        visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
+    
+    original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
+    visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
         
 
 
-        robot.markers_dict = {f"{i}": pos for i, pos in enumerate(robot.markers_pos)}
-        print(robot.markers_dict)
-        robot.save_markers(original_colors=original_colors, visualizer=visualizer)
+    robot.markers_dict = {f"{i}": pos for i, pos in enumerate(robot.markers_pos)}
+    print(robot.markers_dict)
+    robot.save_markers(original_colors=original_colors)
 
 
     if robot_type == 'spot':
-        robot.collect_data(os.path.join(output_dir, f"no_contact.npy"), duration=10)
+        robot.save_data(100, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
     elif robot_type == 'franka':
-        robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=10, visualizer = visualizer)
+        robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
     for idx, pos in robot.markers_dict.items():
         if robot_type == 'spot':
-            robot.vis_markers(idx, pos)
-            robot.save_data(idx, output_dir, duration=5)
+            # robot.vis_markers(idx, pos)
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
         elif robot_type == 'franka':
-            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration, visualizer = visualizer)
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
         
         
 

@@ -1,9 +1,9 @@
 
 echo "################# COLLECT DATA ###########################"
-python store_robot_state.py state --hostname 138.16.161.22 \
+python store_robot_state.py --hostname 138.16.161.22 \
                             --markers_path ../data/gouger_markers_pos.txt\
-                            --output_dir ../data/gouger1209/test \
-                            --robot_type spot --duration 2\
+                            --output_dir ../data/test \
+                            --robot_type spot --duration 1\
 
 
 
