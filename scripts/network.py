@@ -36,13 +36,13 @@ class JointNetwork(nn.Module):
             # spot
             self.network = nn.Sequential(
                 nn.Flatten(),
-                nn.Linear(input_dim, 128),
+                nn.Linear(input_dim, 64),
                 nn.ReLU(), 
 
-                nn.Linear(128,128), 
+                nn.Linear(64,256), 
                 nn.ReLU(),
                 # nn.Dropout(0.1),
-                nn.Linear(128, 256),
+                nn.Linear(256, 256),
                 nn.ReLU(),
                 # nn.Dropout(0.3),
                 nn.Linear(256, 256),
