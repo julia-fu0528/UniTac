@@ -2,8 +2,8 @@
 echo "################# COLLECT DATA ###########################"
 python store_robot_state.py --hostname 138.16.161.22 \
                             --markers_path ../data/gouger_markers_pos.txt\
-                            --output_dir ../data/test \
-                            --robot_type spot --duration 1\
+                            --output_dir ../data/gouger1209/stand_l4 \
+                            --robot_type spot --duration 10 \
 
 
 

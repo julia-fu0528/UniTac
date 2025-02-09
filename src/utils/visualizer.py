@@ -21,7 +21,16 @@ class RobotVisualizer():
         self.local_indices = []
         
         # link -> body
-        self.fk_default = self.robot.visual_trimesh_fk(cfg=None)
+        if robot_type == "spot":
+            joint_positions = {'base_link_joint': 0.0, 'front_rail_joint': 0.0, 'rear_rail_joint': 0.0, 'front_left_hip_x': 0.0, 
+                               'front_left_hip_y': 0.0, 'front_left_knee': 0.0, 'front_right_hip_x': 0.0, 'front_right_hip_y': 0.0, 
+                               'front_right_knee': 0.0, 'rear_left_hip_x': 0.0, 'rear_left_hip_y': 0.0, 'rear_left_knee': 0.0, 
+                               'rear_right_hip_x': 0.0, 'rear_right_hip_y': 0.0, 'rear_right_knee': 0.0, 'arm_sh0': -0.0005052089691162109, 
+                               'arm_sh1': -3.119394302368164, 'arm_hr0': 0.0, 'arm_el0': 3.126546859741211, 'arm_el1': 1.569286823272705, 
+                               'arm_wr0': -0.0010634660720825195, 'arm_wr1': -1.5685768127441406, 'arm_f1x': -0.0076329708099365234}
+            self.fk_default = self.robot.visual_trimesh_fk(cfg=joint_positions)
+        else:
+            self.fk_default = self.robot.visual_trimesh_fk(cfg=None)
         # link -> world
         self.fk_meshes = []
         for tm in self.fk_default:
@@ -73,6 +82,8 @@ class RobotVisualizer():
         
         if initializing:
             self.default_pcds = self.point_clouds.copy()
+            # self.default_pcds = [pcd.transform(trimesh_fk[tm]) for pcd, tm in zip(self.point_clouds, trimesh_fk)]
+
             self.all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.default_pcds])
             self.kdtree = cKDTree(self.all_points)
 
@@ -124,25 +135,57 @@ class RobotVisualizer():
             #     o3d.visualization.draw_geometries(self.o3d_meshes_default)
             #     o3d.visualization.draw_geometries(self.point_clouds)
     
-    def marker_2vert(self, markers_pos, radius = 0.04):
+    # def marker_2vert(self, markers_pos, radius = 0.04):
+    #     all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.point_clouds])
+    #     kdtree = cKDTree(all_points)
+
+    #     point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in self.point_clouds]
+    #     point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
+        
+    #     for marker_pos in markers_pos:
+    #         indices = kdtree.query_ball_point(marker_pos, radius)
+    #         cur_marker_pcd_indices = []
+    #         cur_marker_local_indices = []
+    #         for idx in indices:
+    #             pcd_idx = np.searchsorted(point_cloud_boundaries, idx, side='right') - 1
+    #             local_idx = idx - point_cloud_boundaries[pcd_idx]
+
+    #             cur_marker_pcd_indices.append(pcd_idx)
+    #             cur_marker_local_indices.append(local_idx)
+    #         self.pcd_indices.append(cur_marker_pcd_indices)
+    #         self.local_indices.append(cur_marker_local_indices)
+            
+    def marker_2vert(self, markers_pos, radius=0.04):
         all_points = np.concatenate([np.asarray(pcd.points) for pcd in self.point_clouds])
         kdtree = cKDTree(all_points)
 
         point_cloud_sizes = [len(np.asarray(pcd.points)) for pcd in self.point_clouds]
         point_cloud_boundaries = np.cumsum([0] + point_cloud_sizes) 
-        
+
+        print(f"markers_pos:{len(markers_pos)}")
+        count = 0
         for marker_pos in markers_pos:
+            print(f"idx = {count}")
+            count += 1
             indices = kdtree.query_ball_point(marker_pos, radius)
+            
             cur_marker_pcd_indices = []
             cur_marker_local_indices = []
+
+            print(f"Marker Position: {marker_pos}")  # <-- Check what position is being searched
+
             for idx in indices:
                 pcd_idx = np.searchsorted(point_cloud_boundaries, idx, side='right') - 1
                 local_idx = idx - point_cloud_boundaries[pcd_idx]
 
                 cur_marker_pcd_indices.append(pcd_idx)
                 cur_marker_local_indices.append(local_idx)
+
+                # print(f"   Closest Point: {all_points[idx]} from Point Cloud {pcd_idx}")  # <-- Debug nearest point
+
             self.pcd_indices.append(cur_marker_pcd_indices)
             self.local_indices.append(cur_marker_local_indices)
+
 
     def pos_2pcd(self, pos, radius = 0.04):
         indices = self.kdtree.query_ball_point(pos, radius)

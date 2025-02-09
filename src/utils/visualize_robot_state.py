@@ -209,11 +209,41 @@ def load_spot():
     robot = URDF.load('spot_description/spot.urdf')
     robot.show()
 
-def find_closest_vertices(mesh, positions, num_points = 10000): 
+def find_closest_vertices(mesh, positions, robot_type, num_points = 10000): 
+    if robot_type == "spot":
+        robot = URDF.load('../spot_description/spot.urdf')
+        joint_positions = {'base_link_joint': 0.0, 'front_rail_joint': 0.0, 'rear_rail_joint': 0.0, 'front_left_hip_x': 0.0, 
+                               'front_left_hip_y': 0.0, 'front_left_knee': 0.0, 'front_right_hip_x': 0.0, 'front_right_hip_y': 0.0, 
+                               'front_right_knee': 0.0, 'rear_left_hip_x': 0.0, 'rear_left_hip_y': 0.0, 'rear_left_knee': 0.0, 
+                               'rear_right_hip_x': 0.0, 'rear_right_hip_y': 0.0, 'rear_right_knee': 0.0, 'arm_sh0': -0.0005052089691162109, 
+                               'arm_sh1': -3.119394302368164, 'arm_hr0': 0.0, 'arm_el0': 3.126546859741211, 'arm_el1': 1.569286823272705, 
+                               'arm_wr0': -0.0010634660720825195, 'arm_wr1': -1.5685768127441406, 'arm_f1x': -0.0076329708099365234}
+        trimesh_fk = robot.visual_trimesh_fk(cfg=joint_positions)
+        o3d_meshes = []
+        for tm in trimesh_fk:
+            o3d_mesh = o3d.geometry.TriangleMesh(
+                vertices=o3d.utility.Vector3dVector(tm.vertices.copy()),
+                triangles=o3d.utility.Vector3iVector(tm.faces.copy())
+            )
+            o3d_mesh.compute_vertex_normals()
+            try:
+                o3d_mesh.paint_uniform_color(tm.visual.material.main_color[:3] / 255.)
+            except AttributeError:
+                o3d_mesh.vertex_colors = o3d.utility.Vector3dVector(tm.visual.vertex_colors[:, :3] / 255.)
+
+            o3d_mesh.transform(trimesh_fk[tm])
+            o3d_meshes.append(o3d_mesh)
+        # o3d.visualization.draw_geometries(o3d_meshes)
+        total_mesh = o3d.geometry.TriangleMesh()
+        for mesh in o3d_meshes:
+            total_mesh += mesh
+        sampled_points = sample_points_from_mesh(np.array(total_mesh.vertices), np.asarray(total_mesh.triangles), num_points)
+    else:
+
     # Build a KD-tree for efficient nearest-neighbor search
     # if not isinstance(mesh_vertices, np.ndarray):
     #     mesh_vertices = np.asarray(mesh_vertices)
-    sampled_points = sample_points_from_mesh(np.asarray(mesh.vertices), np.asarray(mesh.triangles), num_points)
+        sampled_points = sample_points_from_mesh(np.asarray(mesh.vertices), np.asarray(mesh.triangles), num_points)
 
     # # visualize the points 
     # pcd = o3d.geometry.PointCloud()
@@ -229,7 +259,6 @@ def find_closest_vertices(mesh, positions, num_points = 10000):
     # Extract the closest vertex positions
     # closest_vertices = mesh_vertices[closest_indices]
     closest_vertices = sampled_points[closest_indices]
-
     return closest_vertices, closest_indices
 
 
