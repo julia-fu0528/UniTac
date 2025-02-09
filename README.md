@@ -25,3 +25,6 @@ pip install networkx --upgrade
 pip install open3d seaborn 
 pip install -U 'tensorboard'
 ```
+
+**Notes**
+- Data min and data max npy need to moved from ccv to local when running realtime prediction
