@@ -38,13 +38,14 @@ def load_joint_torques(torque_path):
         for joint in state_dict[i]:
             joint_name = getattr(joint, 'name', None)
             if joint_name is not None:
+                print(f"joint_name: {joint_name}")
                 if not joint_name.startswith("arm"):
                     # Store both the joint name and load value in the dictionary
                     torque_dict[i].append({
                         'name': joint_name,
                         'load': joint.load.value  # Assuming load has a 'value' attribute
                     })
-
+        sys.exit()
     # Determine the number of entries and the maximum number of joints to dynamically handle varying joint counts
     num_entries = len(torque_dict)
     num_joints = max(len(torque_dict[i]) for i in torque_dict)
