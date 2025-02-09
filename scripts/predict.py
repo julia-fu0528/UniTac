@@ -92,7 +92,7 @@ class RealtimeRobot:
         else:
             output_dim = 3
         if self.robot_type == 'spot':
-            self.model = self.load_from_checkpoint(input_dim=24 * seq, output_dim=output_dim * seq)
+            self.model = self.load_from_checkpoint(input_dim=38 * seq, output_dim=output_dim * seq)
         elif self.robot_type == 'franka':
             self.model = self.load_from_checkpoint( input_dim=14 * seq, output_dim=output_dim * seq)
         print("Model loaded successfully.")
@@ -157,7 +157,7 @@ class RealtimeRobot:
         else:
             buffer = np.zeros((sliding_win, 3))
         if self.robot_type == 'spot':
-            data_buffer = np.zeros((seq_win, 24))
+            data_buffer = np.zeros((seq_win, 38))
         elif self.robot_type == 'franka':
             data_buffer = np.zeros((seq_win, 14))
         weights = np.power((1 - alpha), np.arange(sliding_win))

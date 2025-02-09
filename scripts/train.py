@@ -27,7 +27,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     else:
         output_dim = 3
     if robot_type == 'spot':
-        model = LitRobot(input_dim = 24 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
+        model = LitRobot(input_dim = 38 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
     elif robot_type == 'franka':
         model = LitRobot(input_dim = 14 * seq, output_dim = output_dim * seq, markers_path = markers_path, classify=classify, seq=seq, robot_type = robot_type)
 
