@@ -38,7 +38,6 @@ def load_joint_torques(torque_path):
         for joint in state_dict[i]:
             joint_name = getattr(joint, 'name', None)
             if joint_name is not None:
-                print(f"joint_name: {joint_name}")
                 # if not joint_name.startswith("arm"):
                 # Store both the joint name and load value in the dictionary
                 torque_dict[i].append({
