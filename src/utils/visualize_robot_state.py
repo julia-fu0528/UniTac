@@ -18,9 +18,6 @@ from urdfpy import URDF
 from scipy.spatial import cKDTree
 from scipy.spatial import KDTree
 import open3d as o3d
-import bosdyn.client
-import bosdyn.client.util
-from bosdyn.client.robot_state import RobotStateClient
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
