@@ -377,12 +377,12 @@ class RealtimeSpot(RealtimeRobot):
         for joint in state_dict:
             joint_name = getattr(joint, 'name', None)
             if joint_name is not None:
-                if not joint_name.startswith("arm"):
-                    torque_dict.append({
-                        'name': joint_name,
-                        'position': joint.position.value,
-                        'load': joint.load.value  
-                    })
+                # if not joint_name.startswith("arm"):
+                torque_dict.append({
+                    'name': joint_name,
+                    'position': joint.position.value,
+                    'load': joint.load.value  
+                })
         num_joints = len(torque_dict)
         torque_data = np.full((1, num_joints), np.nan, dtype=float)
         pos_data = np.full((1, num_joints), np.nan, dtype=float)
