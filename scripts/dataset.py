@@ -69,8 +69,6 @@ class JointLabel:
         start_dir = 38
         end_dir = 49
         dirs = natsorted(os.listdir(self.torque_dir))
-        print(f"dirs: {dirs}")
-        sys.exit()
         # randomly pick a number from 0 to num_dir
         if self.robot_type == 'spot':
             val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 30), 2)
