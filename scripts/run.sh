@@ -2,15 +2,15 @@
 # echo "################# COLLECT DATA ###########################"
 # python store_robot_state.py --hostname 138.16.161.22 \
 #                             --markers_path ../data/gouger_markers_pos.txt\
-#                             --output_dir ../data/gouger1209/stand_l4 \
+#                             --output_dir ../data/gouger1209/ttop0 \
 #                             --robot_type spot --duration 10 \
 
 
 
-# echo "################# DATALOADER ###############################"
-# python dataset.py --session gouger1209 --data_dir ../data \
-#                     --markers_path ../data/gouger_markers_pos.txt \
-#                     --seq 1  --robot_type spot  \
+echo "################# DATALOADER ###############################"
+python dataset.py --session gouger1209 --data_dir ../data \
+                    --markers_path ../data/gouger_markers_pos.txt \
+                    --seq 1  --robot_type spot  \
 
 echo "################# TRAINING ###############################"
 python train.py --session gouger1209 --data_dir ../data \
@@ -19,7 +19,7 @@ python train.py --session gouger1209 --data_dir ../data \
 
 
 # echo "################# PREDICTING ################################"
-# python predict.py --ckpts_path ../gouger_logs/spot/regression/version_37/checkpoints/best.ckpt\
+# python predict.py --ckpts_path ../gouger_logs/spot/regression/version_38/checkpoints/best.ckpt\
 #                   --markers_path ../data/gouger_markers_pos.txt --data_dir ../data/gouger1209 --device cpu --seq 1 --robot_type spot\
 #                   --hostname 138.16.161.22 \
                   # --choreo \

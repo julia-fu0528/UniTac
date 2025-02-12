@@ -599,7 +599,6 @@ def main():
         realtime_robot = RealtimeFranka(markers_path, data_dir, classify, options.ckpts_path, seq, device)
     # Create buffers
     data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.8, sliding_win=10)
-
     try:
         idx = 0
         while True:
