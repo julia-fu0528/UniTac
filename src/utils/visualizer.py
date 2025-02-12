@@ -72,7 +72,7 @@ class RobotVisualizer():
             o3d_mesh.transform(trimesh_fk[tm])
             self.prev_fks.append(trimesh_fk[tm]) # world -> T1
             if len(tm.vertices) > 1000 and self.robot_type == "spot":
-                pcd = o3d_mesh.sample_points_uniformly(number_of_points=70 * self.points_per_mesh) # 90
+                pcd = o3d_mesh.sample_points_uniformly(number_of_points=90 * self.points_per_mesh) 
             else:
                 pcd = o3d_mesh.sample_points_uniformly(number_of_points=self.points_per_mesh)
             if self.vis:

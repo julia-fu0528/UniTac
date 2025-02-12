@@ -257,7 +257,6 @@ class Spot(Robot):
             state_dict.append(state)
         
         # save data 
-        print(f"Data collection complete, saved in {output_path}\n")
         np.save(output_path, state_dict)
 
         print(f"Touch Data Collected for marker position {idx}, saved in {output_path}\n")
@@ -451,16 +450,14 @@ def main():
     # robot.save_markers(original_colors=original_colors)
 
 
-    # if robot_type == 'spot':
-        # robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
-    # elif robot_type == 'franka':
-        # robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
+    if robot_type == 'spot':
+        robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
+    elif robot_type == 'franka':
+        robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
     for idx, pos in robot.markers_dict.items():
-        if int(idx) < 100:
-            continue
         if robot_type == 'spot':
             # robot.vis_markers(idx, pos)
             robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)

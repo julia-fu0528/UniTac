@@ -66,12 +66,12 @@ class JointLabel:
     def preprocess_data(self):
         print(f"Preprocessing data...")
         num_dir = len([name for name in os.listdir(self.torque_dir) if os.path.isdir(os.path.join(self.torque_dir, name))])
-        start_dir = 28
-        end_dir = 39
+        start_dir = 38
+        end_dir = 49
         dirs = natsorted(os.listdir(self.torque_dir))
         # randomly pick a number from 0 to num_dir
         if self.robot_type == 'spot':
-            val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 10), 2)
+            val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 30), 2)
         elif self.robot_type == 'franka':
             val_indices = random.sample(range(0, num_dir), num_dir//5)
         train_dirs = []
