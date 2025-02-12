@@ -71,7 +71,7 @@ class JointLabel:
         dirs = natsorted(os.listdir(self.torque_dir))
         # randomly pick a number from 0 to num_dir
         if self.robot_type == 'spot':
-            val_indices = random.sample(range(start_dir, end_dir), 2) + random.sample(range(0, 30), 2)
+            val_indices = random.sample(range(start_dir, end_dir), 3) + random.sample(range(0, 30), 7)
         elif self.robot_type == 'franka':
             val_indices = random.sample(range(0, num_dir), num_dir//5)
         train_dirs = []
