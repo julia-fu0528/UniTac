@@ -80,7 +80,7 @@ class RealtimeRobot:
         print(f"class: {self.classes}")
         for c in self.classes:
             if self.marker_positions.get(c) is None:
-                self.coordinates[str(self.markers_pos.shape[0])] = np.array([0, 0, 0])
+                self.coordinates[str(self.markers_pos.shape[0])] = np.array([0, 0, -100])
             else:
                 self.coordinates[c] = self.marker_positions.get(c)
 
@@ -192,7 +192,7 @@ class RealtimeRobot:
             predicted_class = self.classes[predicted_class_index]
             print(f"Prediction: {predicted_class}, Confidence: {confidence:.2f}")
             if predicted_class == "no_contact":
-                pos = np.array([0, 0, 0])
+                pos = np.array([0, 0, -100])
             else:
                 pos = self.marker_positions.get(predicted_class)
         else:

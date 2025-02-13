@@ -95,7 +95,7 @@ class Spot(Robot):
             self.total_mesh += mesh
     
     def choose_markers(self, num_points = 10000):
-        markers_pos = [[0.45, 0.06, -0.035],[0.45, -0.07, -0.035], # front
+        markers_pos = [[0.45, 0.08, -0.034],[0.45, -0.08, -0.033], # front
                     [-0.45, 0.05, 0.05],[-0.45, -0.05, 0.05], # back
                     [0.13, 0.14, 0.01], [-0.13, 0.14, -0.01], # left
                     [0.1, -0.15, -0.01], [-0.13, -0.14, -0.01], # right
@@ -108,8 +108,8 @@ class Spot(Robot):
         for i in range(8): # RIGHT: 24
             x = -0.2 + i / 8 * (0.25 - (-0.2))
             for j in range(3):
-                z = -0.04 + j / 3 * (0.1 - (-0.04))
-                markers_pos.append([x, -0.105, z])
+                z = -0.041 + j / 3 * (0.11 - (-0.041))
+                markers_pos.append([x, -0.12, z])
         for i in range(6):  # TOP: 24
             x = -0.37 + i / 6 * (0.04 - (-0.37))
             for j in range(3):
@@ -119,10 +119,12 @@ class Spot(Robot):
                             [-0.2, -0.07, 0.08], [0.01, -0.07, 0.08], [0.1, -0.07, 0.08]])
         for i in range(4): # FRONT: 8
             y = -0.07 + i / 4 * (0.11 - (-0.07))
-            markers_pos.append([0.39, y, -0.07])
-            markers_pos.append([0.44, y, 0.04])
+            markers_pos.append([0.39, y, -0.08])
+            markers_pos.append([0.45, y, 0.04])
+        # markers_pos.extend([[0.45, 0.075, 0.044], [0.45, 0.03, 0.04], [0.45, -0.02, 0.042], [0.45, -0.067, 0.045],
+                            # [0.39, 0.075, -0.07], [0.39, 0.03, -0.07], [0.39, -0.02, -0.07], [0.39, -0.067, -0.07]])
         for i in range(4):  # BACK: 10
-            y = -0.07 + i / 4 * (0.11 - (-0.07))
+            y = -0.067 + i / 4 * (0.11 - (-0.067))
             markers_pos.append([-0.40, y, -0.06])
             markers_pos.append([-0.42, y, 0.04])
         markers_pos.extend([[-0.42, -0.07, -0.01], [-0.42, 0.07, -0.01]])
@@ -210,17 +212,6 @@ class Spot(Robot):
         self.visualizer.visualize(cfg=joint_positions)
 
         if idx != -1:
-            # bounds = []
-            # for pcd in self.visualizer.point_clouds:
-            #     points = np.asarray(pcd.points)
-            #     min_bound = points.min(axis=0)  # Minimum x, y, z values
-            #     max_bound = points.max(axis=0)  # Maximum x, y, z values
-            #     bounds.append((min_bound, max_bound))
-            # for i, (min_b, max_b) in enumerate(bounds):
-            #     print(f"Point Cloud {i}: Min Bound = {min_b}, Max Bound = {max_b}")
-            this_pcd = self.visualizer.point_clouds[23]
-            those_points = np.asarray(this_pcd.points)
-            print(f"those_points: {those_points[0:1000]}")
             pcd_indices = self.visualizer.pcd_indices[int(idx)]
             local_indices = self.visualizer.local_indices[int(idx)]
             base_pcd = self.visualizer.point_clouds[pcd_indices[0]]
@@ -231,12 +222,6 @@ class Spot(Robot):
             normals = np.asarray(base_pcd.normals)
             normal = normals[local_indices[0]]
 
-            # current_pcd = self.visualizer.point_clouds[23]
-            # colors = np.asarray(current_pcd.colors)
-            # for idx in range(len(current_pcd.points)):
-            #     colors[idx] = [1, 0, 0]
-            # current_pcd.colors = o3d.utility.Vector3dVector(colors)
-
             for pcd_idx, local_idx in zip(pcd_indices, local_indices):
                 cur_pcd = self.visualizer.point_clouds[pcd_idx]
                 colors = np.asarray(cur_pcd.colors)
@@ -246,6 +231,22 @@ class Spot(Robot):
 
             print(f"YOU CAN TOUCH THE ROBOT NOW. Data collection will start right away, please make sure you are touching the Robot.\n")
         else:
+            for idx in range(len(self.markers_pos)):
+                pcd_indices = self.visualizer.pcd_indices[int(idx)]
+                local_indices = self.visualizer.local_indices[int(idx)]
+                base_pcd = self.visualizer.point_clouds[pcd_indices[0]]
+                points = np.asarray(base_pcd.points)
+                pos = points[local_indices[0]]
+                if not base_pcd.has_normals():
+                    base_pcd.compute_normals()
+                normals = np.asarray(base_pcd.normals)
+                normal = normals[local_indices[0]]
+
+                for pcd_idx, local_idx in zip(pcd_indices, local_indices):
+                    cur_pcd = self.visualizer.point_clouds[pcd_idx]
+                    colors = np.asarray(cur_pcd.colors)
+                    colors[local_idx] = [1, 0, 0]
+                    cur_pcd.colors = o3d.utility.Vector3dVector(colors)
             o3d.visualization.draw_geometries(self.visualizer.point_clouds, zoom = 0.7, front = [1, 0, 0], lookat=[0, 0, 0.5], up = [0, 1, 0])
             print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
 
@@ -441,7 +442,7 @@ def main():
 
     
     original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
-    visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
+    visualizer.marker_2vert(robot.markers_pos, radius = 0.01)
 
 
 
