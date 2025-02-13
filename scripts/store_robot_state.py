@@ -458,12 +458,12 @@ def main():
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
-    for idx, pos in robot.markers_dict.items():
-        if robot_type == 'spot':
-            # robot.vis_markers(idx, pos)
-            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
-        elif robot_type == 'franka':
-            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
+    # for idx, pos in robot.markers_dict.items():
+    #     if robot_type == 'spot':
+    #         # robot.vis_markers(idx, pos)
+    #         robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
+    #     elif robot_type == 'franka':
+    #         robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
         
         
 

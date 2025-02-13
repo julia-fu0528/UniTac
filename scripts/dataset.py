@@ -50,7 +50,7 @@ class JointLabel:
         coordinates = {}
         for c in classes:
             if self.marker_positions.get(c) is None:
-                coordinates[str(self.num_classes-1)] = np.array([0, 0, -0.5])
+                coordinates[str(self.num_classes-1)] = np.array([0, 0, 0])
             else:
                 coordinates[c] = self.marker_positions.get(c)
 
@@ -71,7 +71,7 @@ class JointLabel:
         dirs = natsorted(os.listdir(self.torque_dir))
         # randomly pick a number from 0 to num_dir
         if self.robot_type == 'spot':
-            val_indices = random.sample(range(start_dir, end_dir), 3) + random.sample(range(0, 30), 7)
+            val_indices = random.sample(range(0, 41), num_dir//5)
         elif self.robot_type == 'franka':
             val_indices = random.sample(range(0, num_dir), num_dir//5)
         train_dirs = []
