@@ -50,7 +50,7 @@ class JointLabel:
         coordinates = {}
         for c in classes:
             if self.marker_positions.get(c) is None:
-                coordinates[str(self.num_classes-1)] = np.array([0, 0, -100])
+                coordinates[str(self.num_classes-1)] = np.array([0, 0, -0.5])
             else:
                 coordinates[c] = self.marker_positions.get(c)
 
