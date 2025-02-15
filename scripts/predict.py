@@ -400,8 +400,8 @@ class RealtimeSpot(RealtimeRobot):
 
     def exe_choreo(self, choreography):
         routine_name = choreography.name
-        delayed_start = 2.0
-        client_start_time = time.time() + delayed_start
+        # delayed_start = 2.0
+        client_start_time = time.time()
         # begins at the very beginning.
         start_slice = 0
         # Issue the command to the robot's choreography service.
@@ -417,78 +417,80 @@ class RealtimeSpot(RealtimeRobot):
             #  Store the highest end_slice value of all the moves.
             if total_choreography_slices < end_slice:
                 total_choreography_slices = end_slice
-        estimated_time_seconds = delayed_start + total_choreography_slices / choreography.slices_per_minute * 60.0
+        estimated_time_seconds = total_choreography_slices / choreography.slices_per_minute * 60.0
 
         # Sleep for the duration of the dance, plus an extra second.
         time.sleep(estimated_time_seconds + 1.0)
 
     def respond(self, pos, threshold=1):
         # top
-        if 0.072 < pos[2] < 0.1 and pos[0] > -0.1 and -0.9 < pos[1] < 0.9:
+        if 0.072 < pos[2] < 0.1 and -0.08 < pos[0] < 0.15 and -0.9 < pos[1] < 0.9:
             print(f"Back (Top) - lay down")
-            # self.exe_choreo(self.choreos[0])
+            self.exe_choreo(self.choreos[0])
             # time.sleep(1)
-        elif 0.072 < pos[2] < 0.1 and pos[0] <= -0.1 and -0.9 < pos[1] < 0.9:
+        elif 0.072 < pos[2] < 0.1 and pos[0] <= -0.15 and -0.9 < pos[1] < 0.9:
             print(f"Back (Hip) - sit")
-            # self.exe_choreo(self.choreos[1])
+            self.exe_choreo(self.choreos[1])
             # time.sleep(1)
         # side top
         elif -0.01 < pos[2] < 0.072 and pos[1] > 0.09 and pos[0] < 0.06:
             print(f"Back side (Left) - pace right")
-            # self.exe_choreo(self.choreos[2])
+            self.exe_choreo(self.choreos[2])
             # time.sleep(1)
         elif 0 < pos[2] < 0.072 and pos[1] > 0.09 and pos[0] >= 0.06:
             print(f"Front side (Left) - turn right")
-            # self.exe_choreo(self.choreos[3])
+            self.exe_choreo(self.choreos[3])
             # time.sleep(1)
-        elif -0.01 < pos[2] < 0.072 and pos[1] < -0.09 and pos[0] < 0.06:
+        elif 0 < pos[2] < 0.072 and pos[1] < -0.09 and pos[0] < 0.06:
             print(f"Back side (Right) - pace left")
-            # self.exe_choreo(self.choreos[4])
+            self.exe_choreo(self.choreos[4])
             # time.sleep(1)
-        elif 0 < pos[2] < 0.072 and pos[1] < -0.09 and pos[0] >= 0.06:
+        elif 0 < pos[2] < 0.072 and pos[1] < -0.05 and pos[0] >= 0.06:
             print(f"Front side (Right) - turn left")
-            # self.exe_choreo(self.choreos[5])
+            self.exe_choreo(self.choreos[5])
             # time.sleep(1)
         # side bottom
         elif pos[2] < -0.01 and pos[1] > 0.09 and pos[0] < 0.06:
             print(f"Back abdomen (Left) - tilt hip right up")
-            # self.exe_choreo(self.choreos[6])
+            self.exe_choreo(self.choreos[6])
             # time.sleep(1)
         elif pos[2] < 0 and pos[1] > 0.09 and pos[0] >= 0.06:
             print(f"Front abdomen (Left) - tilt front right up")
-            # self.exe_choreo(self.choreos[7])
+            self.exe_choreo(self.choreos[7])
             # time.sleep(1)
-        elif pos[2] < -0.01 and pos[1] < -0.09 and pos[0] < 0.06:
+        elif pos[2] < 0 and pos[1] < -0.09 and pos[0] < 0.06:
             print(f"Back abdomen (Right) - tilt hip left up")
-            # self.exe_choreo(self.choreos[8])
+            self.exe_choreo(self.choreos[8])
             # time.sleep(1)
         elif pos[2] < 0 and pos[1] < -0.09 and pos[0] >= 0.06:
             print(f"Front abdomen (Right) - tilt front left up")
-            # self.exe_choreo(self.choreos[9])
+            self.exe_choreo(self.choreos[9])
             # time.sleep(1)
         # abdomen (right, front) seems to require more force than side
         # back
-        elif pos[0] < -0.12 and pos[1] > -0.01 and pos[2] < 0.2:
+        elif pos[0] < -0.12 and pos[1] > -0.01 and pos[2] < 0.1:
             print(f"Hip left - step back left")
-            # self.exe_choreo(self.choreos[10])
+            self.exe_choreo(self.choreos[10])
             # time.sleep(1)
-        elif pos[0] < -0.12 and pos[1] < -0.01 and pos[2] < 0.2:
+        elif pos[0] < -0.12 and pos[1] < -0.01 and pos[2] < 0.1:
             print(f"Hip right - step back right")
-            # self.exe_choreo(self.choreos[11])
+            self.exe_choreo(self.choreos[11])
             # time.sleep(1)
         # front
-        elif pos[0] > 0.41 and pos[1] > -0.01 and pos[2] < 0.2:
+        elif pos[0] > 0.41 and pos[1] > -0.01 and pos[2] < 0.1:
             print(f"Front left - step front left")
-            # self.exe_choreo(self.choreos[12])
+            self.exe_choreo(self.choreos[12])
             # time.sleep(1)
-        elif pos[0] > 0.41 and pos[1] < -0.01 and pos[2] < 0.2:
+        elif pos[0] > 0.41 and pos[1] < -0.01 and pos[2] < 0.1:
             print(f"Front right - step front right")
-            # self.exe_choreo(self.choreos[13])
+            self.exe_choreo(self.choreos[13])
             # time.sleep(1)
-        elif pos[2] > 0.2 and pos[0] < 0.32:
+        elif pos[2] > 0.1 and 0.08 < pos[0] < 0.27:
             print(f"Arm - sway")
-        elif pos[2] > 0.2 and pos[0] > 0.32:
+            self.exe_choreo(self.choreos[14])
+        elif pos[2] > 0.1 and pos[0] > 0.27:
             print(f"Head - happy sway")
+            self.exe_choreo(self.choreos[15])
 
         if False:
             distance = np.linalg.norm(pos - self.coordinates.get(str(len(self.markers_pos))))
@@ -616,6 +618,7 @@ def main():
                 # Respond to the predictions
                 if idx > 100:
                     realtime_robot.respond(pos)
+
     except KeyboardInterrupt:
         print("Exiting real-time inference...")
     except Exception as e:

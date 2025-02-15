@@ -1,0 +1,83 @@
+name: "play_bow_happy"
+slices_per_minute: 480.0
+moves {
+  type: "gripper"
+  requested_slices: 16
+  gripper_params {
+    angle {
+      value: -0.7420919000000001
+    }
+    speed {
+      value: 1.0
+    }
+  }
+}
+moves {
+  type: "body_hold"
+  requested_slices: 6
+  body_hold_params {
+    rotation {
+      roll {
+        value: 0.01
+      }
+      pitch {
+        value: 0.12
+      }
+      yaw {
+        value: 0.01
+      }
+    }
+    translation {
+      x {
+      }
+      y {
+        value: 1e-06
+      }
+      z {
+        value: 1e-06
+      }
+    }
+    entry_slices {
+      value: 5.0
+    }
+    exit_slices {
+      value: 1e-06
+    }
+  }
+}
+moves {
+  type: "sway"
+  start_slice: 6
+  requested_slices: 16
+  sway_params {
+    vertical {
+    }
+    horizontal {
+      value: 0.058064000000000004
+    }
+    roll {
+      value: 0.06
+    }
+    pivot: PIVOT_FRONT
+    style: SWAY_STYLE_STANDARD
+    pronounced {
+      value: 0.5
+    }
+    hold_zero_axes {
+      value: true
+    }
+  }
+}
+moves {
+  type: "gripper"
+  start_slice: 16
+  requested_slices: 8
+  gripper_params {
+    angle {
+      value: 1e-06
+    }
+    speed {
+      value: 1.0
+    }
+  }
+}

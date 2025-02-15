@@ -442,7 +442,7 @@ def main():
 
     
     original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
-    visualizer.marker_2vert(robot.markers_pos, radius = 0.01)
+    visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
 
 
 
@@ -451,19 +451,21 @@ def main():
     # robot.save_markers(original_colors=original_colors)
 
 
-    if robot_type == 'spot':
-        robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
-    elif robot_type == 'franka':
-        robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
+    # if robot_type == 'spot':
+        # robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
+    # elif robot_type == 'franka':
+        # robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
-    # for idx, pos in robot.markers_dict.items():
-    #     if robot_type == 'spot':
-    #         # robot.vis_markers(idx, pos)
-    #         robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
-    #     elif robot_type == 'franka':
-    #         robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
+    for idx, pos in robot.markers_dict.items():
+        if int(idx) < 2 or 3 < int(idx) < 6 or  7 < int(idx) < 34 or 57 < int(idx) < 90 or int(idx) > 99:
+            continue
+        if robot_type == 'spot':
+            # robot.vis_markers(idx, pos)
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
+        elif robot_type == 'franka':
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
         
         
 
