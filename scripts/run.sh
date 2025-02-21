@@ -19,7 +19,7 @@
 
 
 echo "################# PREDICTING ################################"
-python predict.py --ckpts_path ../gouger_logs/spot/regression/version_114/checkpoints/best.ckpt\
+python predict.py --ckpts_path ../gouger_logs/spot/regression/version_55/checkpoints/best.ckpt\
                   --markers_path ../data/gouger_markers_pos.txt --data_dir ../data/gouger1209 --device cpu --seq 1 --robot_type spot\
                   --hostname 138.16.161.22 \
                   --choreo \
