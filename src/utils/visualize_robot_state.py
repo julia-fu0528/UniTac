@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import os
 import trimesh
 import trimesh.viewer
+from matplotlib.ticker import MaxNLocator
+
 from pathlib import Path
 import xml.etree.ElementTree as ET
 import random
@@ -137,31 +139,54 @@ def vis_joint_torques(torque_path_list):
     # torque_data, num_entries, num_joints, joint_names = load_joint_torques(torque_path)
     all_torque_data = None
     total_entries = 0
+    # horizontal left: 0, 6
+    # vertical left: 2, 5, 8, 11
+    chosen_joints = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] #12, 15
     for torque_path in torque_path_list:
         torque_data, num_entries, num_joints, joint_names = load_joint_torques(torque_path)
+        # torque_data = np.mean(torque_data, axis=0)
+        # torque_data = torque_data[chosen_joints]
         total_entries += num_entries
+        # total_entries += 1
         if all_torque_data is None:
             all_torque_data = torque_data
         else:
             all_torque_data = np.vstack((all_torque_data, torque_data))
     # Create the plot
-    plt.figure(figsize=(10, 6))
-    time_steps = np.arange(total_entries)
-
+    plt.figure(figsize=(10, 4))
+    # time_steps = np.arange(total_entries)
+    time_steps = np.arange(total_entries).astype(int)  # Ensures y-axis has integer values
+    num_joints = len(chosen_joints)
+    joint_names = [joint_names[i] for i in chosen_joints]
+    max_values = np.max(all_torque_data, axis=0)
+    min_values = np.min(all_torque_data, axis=0)
+    all_torque_data = 2 * ((all_torque_data - min_values) / (max_values - min_values)) - 1
+    all_torque_data = all_torque_data[250:310, :]
+    time_steps = time_steps[250:310]
     for j in range(num_joints):
+        print(f"time_steps.shape:{time_steps.shape}")
+        print(f"all_torque_data.shape:{all_torque_data.shape}")
         plt.plot(time_steps, all_torque_data[:, j], label=f'Joint {joint_names[j]}')
+        # plt.plot(all_torque_data[:, j].astype(float), time_steps, label=f'Joint {joint_names[j]}')
+    # plt.xticks(np.linspace(all_torque_data.min(), all_torque_data.max(), num=5))  # Ensure float ticks
+    # plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))  # Display floats with 1 decimal
+    # plt.gca().yaxis.set_major_locator(MaxNLocator(integer=True))  # Force y-axis to be integers
 
     # Add labels and legend
     plt.xlabel("Time")
-    plt.ylabel("Torque")
+    plt.ylabel("Torques")
+    # plt.xlabel("Torque")
+    # plt.ylabel("Vertical location of touch")
     # plt.title(f"Torque Over Time for Each Joint for {torque_path.split('.')[0]}")
-    plt.title(f"Torque Over Time for Each Joint")
-    plt.legend()
+    # plt.title(f"Torque for Each Joint over Different Touch Positions")
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1), frameon=True, edgecolor="black", fontsize=6.5)
+    plt.tight_layout()
+    # plt.legend()
     plt.grid(True)
 
-    output_dir = f"vis/1219/{torque_path_list[0].split('.')[0].split('/')[-2]}"
+    output_dir = f"vis/0218"
     os.makedirs(output_dir, exist_ok=True)
-    save_path = os.path.join(output_dir, f"{torque_path.split('.')[0].split('/')[-1]}_torque.png")
+    save_path = os.path.join(output_dir, f"test2.png")
     print(f"save_path: {save_path}")
     plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
 
@@ -173,9 +198,13 @@ def vis_joint_pos(joint_pos_path_list):
     all_joint_pos_data = None
     total_entries = 0
     num_joints = 0
+    chosen_joints = [ 1, 2, 4, 5, 7, 8, 10, 11]
     for joint_pos_path in joint_pos_path_list:
         joint_pos_data, num_entries, num_joints, joint_names = load_joint_positions(joint_pos_path)
-        total_entries += num_entries
+        joint_pos_data = np.mean(joint_pos_data, axis=0)
+        joint_pos_data = joint_pos_data[chosen_joints]
+        # total_entries += num_entries
+        total_entries += 1
         if all_joint_pos_data is None:
             all_joint_pos_data = joint_pos_data
         else:
@@ -183,20 +212,27 @@ def vis_joint_pos(joint_pos_path_list):
     # Create the plot
     plt.figure(figsize=(10, 6))
     time_steps = np.arange(total_entries)
-
+    num_joints = len(chosen_joints)
+    joint_names = [joint_names[i] for i in chosen_joints]
     for j in range(num_joints):
-        plt.plot(time_steps, all_joint_pos_data[:, j], label=f'Joint {joint_names[j]}')
+        # plt.plot(time_steps, all_joint_pos_data[:, j], label=f'Joint {joint_names[j]}')
+        plt.plot(all_joint_pos_data[:, j], time_steps, label=f'Joint {joint_names[j]}')
+    plt.xticks(np.linspace(all_joint_pos_data.min(), all_joint_pos_data.max(), num=5))  # Ensure float ticks
+    plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))  # Display floats with 1 decimal
+    plt.gca().yaxis.set_major_locator(MaxNLocator(integer=True))  # Force y-axis to be integers
 
     # Add labels and legend
-    plt.xlabel("Time")
-    plt.ylabel("Joint Position")
+    # plt.xlabel("Height")
+    # plt.ylabel("Joint Angle")
+    plt.xlabel("Joint Angle")
+    plt.ylabel("Height")
     # plt.title(f"Joint Position Over Time for Each Joint for {joint_pos_path.split('.')[0]}")
-    plt.title("Joint Position Over Time for Each Joint")
+    plt.title("Joint Position for Each Joint Over Different Standing Heights")
     plt.legend()
     plt.grid(True)
-    output_dir = f"vis/1219/{joint_pos_path_list[0].split('.')[0].split('/')[-2]}"
+    output_dir = f"vis/0218"
     os.makedirs(output_dir, exist_ok=True)
-    save_path = os.path.join(output_dir, f"{joint_pos_path_list[0].split('.')[0].split('/')[-1]}_joint.png")
+    save_path = os.path.join(output_dir, "test.png")
     print(f"save_path: {save_path}")
     plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
 
@@ -824,16 +860,19 @@ def overlay_joint_state(joint_path_list):
 
 
 if __name__ == "__main__":
-    overlay_joint_state(["../../data/franka_right/test1/3.npy",
-                     "../../data/franka_right/test2/3.npy",
-                     "../../data/franka_right/test3/3.npy",
-                     "../../data/franka_right/test4/3.npy",
-                     "../../data/franka_right/test5/3.npy",
-
-                     "../../data/franka_right/test1/4.npy",
-                     "../../data/franka_right/test2/4.npy",
-                     "../../data/franka_right/test3/4.npy",
-                     "../../data/franka_right/test4/4.npy",
-                     "../../data/franka_right/test5/4.npy",])
+    # left mid 20
+    # vis_joint_torques(["../../data/gouger1209/0/32.npy",
+    #                    "../../data/gouger1209/0/29.npy",
+    #                    "../../data/gouger1209/0/23.npy",
+    #                    "../../data/gouger1209/0/17.npy",
+    #                    "../../data/gouger1209/0/14.npy",
+    #                    "../../data/gouger1209/0/11.npy",])
+    vis_joint_torques(["../../data/test/44.npy"])
+    # vis_joint_pos(["../../data/gouger1209/46/20.npy",
+    #                "../../data/gouger1209/40/20.npy",
+    #                "../../data/gouger1209/0/20.npy",
+    #                "../../data/gouger1209/44/20.npy",
+    #                "../../data/gouger1209/49/20.npy",
+    #                ])
 
 

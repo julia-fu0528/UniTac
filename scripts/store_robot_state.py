@@ -442,7 +442,7 @@ def main():
 
     
     original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
-    visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
+    visualizer.marker_2vert(robot.markers_pos, radius = 0.04)
 
 
 
@@ -459,10 +459,11 @@ def main():
     # robot.robot_meshes[0].compute_vertex_normals()
 
     for idx, pos in robot.markers_dict.items():
-        if int(idx) < 2 or 3 < int(idx) < 6 or  7 < int(idx) < 34 or 57 < int(idx) < 90 or int(idx) > 99:
+        # if int(idx) != 71:
+        # if int(idx) != 11 and int(idx) != 14 and int(idx) != 17 and int(idx) != 20 and int(idx) != 23 and int(idx) != 26 and int(idx) != 29 and int(idx) != 32:
+        if int(idx) != 101: # 20, 44, 71, 85, 95, 101
             continue
         if robot_type == 'spot':
-            # robot.vis_markers(idx, pos)
             robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
         elif robot_type == 'franka':
             robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)

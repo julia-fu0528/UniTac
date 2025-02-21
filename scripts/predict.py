@@ -424,73 +424,65 @@ class RealtimeSpot(RealtimeRobot):
 
     def respond(self, pos, threshold=1):
         # top
-        if 0.072 < pos[2] < 0.1 and -0.08 < pos[0] < 0.15 and -0.9 < pos[1] < 0.9:
+        if 0.072 < pos[2] < 0.1 and 0 < pos[0] < 0.15 and -0.9 < pos[1] < 0.9:
             print(f"Back (Top) - lay down")
-            self.exe_choreo(self.choreos[0])
-            # time.sleep(1)
-        elif 0.072 < pos[2] < 0.1 and pos[0] <= -0.15 and -0.9 < pos[1] < 0.9:
+            # self.exe_choreo(self.choreos[0])
+        elif 0.072 < pos[2] < 0.1 and pos[0] <= 0 and -0.9 < pos[1] < 0.9:
             print(f"Back (Hip) - sit")
-            self.exe_choreo(self.choreos[1])
-            # time.sleep(1)
+            # self.exe_choreo(self.choreos[1])
+        elif pos[2] < 0.072 and pos[1] > 0.09 and -0.12 < pos[0] < 0.14:
+            print(f"Middle side (Left) - pace right")
+            # self.exe_choreo(self.choreos[2])
+        elif pos[2] < 0.072 and pos[1] < - 0.09 and -0.12 < pos[0] < 0.14:
+            print(f"Middle side (Right) - pace left")
+            # self.exe_choreo(self.choreos[3])
         # side top
-        elif -0.01 < pos[2] < 0.072 and pos[1] > 0.09 and pos[0] < 0.06:
-            print(f"Back side (Left) - pace right")
-            self.exe_choreo(self.choreos[2])
-            # time.sleep(1)
-        elif 0 < pos[2] < 0.072 and pos[1] > 0.09 and pos[0] >= 0.06:
-            print(f"Front side (Left) - turn right")
-            self.exe_choreo(self.choreos[3])
-            # time.sleep(1)
-        elif 0 < pos[2] < 0.072 and pos[1] < -0.09 and pos[0] < 0.06:
-            print(f"Back side (Right) - pace left")
-            self.exe_choreo(self.choreos[4])
-            # time.sleep(1)
-        elif 0 < pos[2] < 0.072 and pos[1] < -0.05 and pos[0] >= 0.06:
-            print(f"Front side (Right) - turn left")
-            self.exe_choreo(self.choreos[5])
-            # time.sleep(1)
-        # side bottom
-        elif pos[2] < -0.01 and pos[1] > 0.09 and pos[0] < 0.06:
-            print(f"Back abdomen (Left) - tilt hip right up")
+        elif -0.01 < pos[2] < 0.072 and pos[1] > 0.09 and pos[0] < -0.12:
+            print(f"Back side (Left) - turn right on haunches")
+            # self.exe_choreo(self.choreos[4])
+        elif -0.01 < pos[2] < 0.072 and pos[1] > 0.09 and pos[0] >= 0.14:
+            print(f"Front side (Left) - turn right on forehand")
+            # self.exe_choreo(self.choreos[5])
+        elif 0 < pos[2] < 0.072 and pos[1] < -0.05 and pos[0] < -0.12:
+            print(f"Back side (Right) - turn left on haunches")
             self.exe_choreo(self.choreos[6])
-            # time.sleep(1)
-        elif pos[2] < 0 and pos[1] > 0.09 and pos[0] >= 0.06:
+        elif 0 < pos[2] < 0.072 and pos[1] < -0.05 and pos[0] >= 0.14:
+            print(f"Front side (Right) - turn left on forehand")
+            # self.exe_choreo(self.choreos[7])
+        # side bottom
+        elif pos[2] < -0.01 and pos[1] > 0.09 and pos[0] < -0.12:
+            print(f"Back abdomen (Left) - tilt hip right up")
+            # self.exe_choreo(self.choreos[8])
+        elif pos[2] < -0.01 and pos[1] > 0.09 and pos[0] >= 0.14:
             print(f"Front abdomen (Left) - tilt front right up")
-            self.exe_choreo(self.choreos[7])
-            # time.sleep(1)
-        elif pos[2] < 0 and pos[1] < -0.09 and pos[0] < 0.06:
+            # self.exe_choreo(self.choreos[9])
+        elif pos[2] < 0 and pos[1] < -0.09 and pos[0] < -0.12:
             print(f"Back abdomen (Right) - tilt hip left up")
-            self.exe_choreo(self.choreos[8])
-            # time.sleep(1)
-        elif pos[2] < 0 and pos[1] < -0.09 and pos[0] >= 0.06:
+            # self.exe_choreo(self.choreos[10])
+        elif pos[2] < 0 and pos[1] < -0.09 and pos[0] >= 0.14:
             print(f"Front abdomen (Right) - tilt front left up")
-            self.exe_choreo(self.choreos[9])
-            # time.sleep(1)
+            # self.exe_choreo(self.choreos[11])
         # abdomen (right, front) seems to require more force than side
         # back
         elif pos[0] < -0.12 and pos[1] > -0.01 and pos[2] < 0.1:
             print(f"Hip left - step back left")
-            self.exe_choreo(self.choreos[10])
-            # time.sleep(1)
+            # self.exe_choreo(self.choreos[12])
         elif pos[0] < -0.12 and pos[1] < -0.01 and pos[2] < 0.1:
             print(f"Hip right - step back right")
-            self.exe_choreo(self.choreos[11])
-            # time.sleep(1)
+            # self.exe_choreo(self.choreos[13])
         # front
         elif pos[0] > 0.41 and pos[1] > -0.01 and pos[2] < 0.1:
             print(f"Front left - step front left")
-            self.exe_choreo(self.choreos[12])
-            # time.sleep(1)
+            # self.exe_choreo(self.choreos[14])
         elif pos[0] > 0.41 and pos[1] < -0.01 and pos[2] < 0.1:
             print(f"Front right - step front right")
-            self.exe_choreo(self.choreos[13])
-            # time.sleep(1)
+            # self.exe_choreo(self.choreos[15])
         elif pos[2] > 0.1 and 0.08 < pos[0] < 0.27:
             print(f"Arm - sway")
-            self.exe_choreo(self.choreos[14])
+            # self.exe_choreo(self.choreos[16])
         elif pos[2] > 0.1 and pos[0] > 0.27:
             print(f"Head - happy sway")
-            self.exe_choreo(self.choreos[15])
+            # self.exe_choreo(self.choreos[17])
 
         if False:
             distance = np.linalg.norm(pos - self.coordinates.get(str(len(self.markers_pos))))
@@ -614,10 +606,9 @@ def main():
             pos = realtime_robot.predict()
             # Visualize the predictions
             realtime_robot.vis_prediction(pos)
-            if robot_type == 'spot' and options.choreo:
-                # Respond to the predictions
-                if idx > 100:
-                    realtime_robot.respond(pos)
+            # if robot_type == 'spot' and options.choreo:
+                # if idx > 100:
+                    # realtime_robot.respond(pos)
 
     except KeyboardInterrupt:
         print("Exiting real-time inference...")

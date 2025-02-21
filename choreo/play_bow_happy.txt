@@ -2,10 +2,10 @@ name: "play_bow_happy"
 slices_per_minute: 480.0
 moves {
   type: "gripper"
-  requested_slices: 16
+  requested_slices: 24
   gripper_params {
     angle {
-      value: -0.7420919000000001
+      value: -0.8250507
     }
     speed {
       value: 1.0
@@ -14,17 +14,17 @@ moves {
 }
 moves {
   type: "body_hold"
-  requested_slices: 6
+  requested_slices: 12
   body_hold_params {
     rotation {
       roll {
-        value: 0.01
+        value: 0.02
       }
       pitch {
-        value: 0.12
+        value: 0.22
       }
       yaw {
-        value: 0.01
+        value: 0.02
       }
     }
     translation {
@@ -47,16 +47,16 @@ moves {
 }
 moves {
   type: "sway"
-  start_slice: 6
-  requested_slices: 16
+  start_slice: 12
+  requested_slices: 24
   sway_params {
     vertical {
     }
     horizontal {
-      value: 0.058064000000000004
+      value: 0.12
     }
     roll {
-      value: 0.06
+      value: 0.12
     }
     pivot: PIVOT_FRONT
     style: SWAY_STYLE_STANDARD
@@ -70,8 +70,8 @@ moves {
 }
 moves {
   type: "gripper"
-  start_slice: 16
-  requested_slices: 8
+  start_slice: 24
+  requested_slices: 12
   gripper_params {
     angle {
       value: 1e-06

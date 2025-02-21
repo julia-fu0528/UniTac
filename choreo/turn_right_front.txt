@@ -1,4 +1,4 @@
-name: "turn_left_front"
+name: "turn_right_front"
 slices_per_minute: 480.0
 moves {
   type: "goto"
@@ -9,11 +9,11 @@ moves {
         value: -0.1
       }
       y {
-        value: 0.2
+        value: -0.2
       }
     }
     absolute_yaw {
-      value: 0.7
+      value: -1.4
     }
     step_position_stiffness {
       value: 3.0
