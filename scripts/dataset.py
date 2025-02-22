@@ -31,9 +31,11 @@ class JointLabel:
         self.torque_dir = torque_dir
         self.robot_type = robot_type
         self.training_data = []
-        self.training_labels = []
+        self.training_labels = [] # ohe or coord
+        self.training_class = [] # class num
         self.validation_data = []
-        self.validation_labels = []
+        self.validation_labels = [] 
+        self.validation_class = [] 
         self.scaler = MinMaxScaler(feature_range=(-1, 1))
         
         markers_pos = np.loadtxt(markers_path, delimiter=',')
@@ -50,16 +52,18 @@ class JointLabel:
         coordinates = {}
         for c in classes:
             if self.marker_positions.get(c) is None:
-                coordinates[str(self.num_classes-1)] = np.array([0, 0, 0])
+                # coordinates[str(self.num_classes-1)] = np.array([0, 0, 0])
+                coordinates[c] = np.array([0, 0, 0])
             else:
                 coordinates[c] = self.marker_positions.get(c)
 
         self.classify = classify
 
-        if self.classify:
-            self.class_to_label = {cls: idx for idx, cls in enumerate(classes)}
-        else:
-            self.class_to_label = coordinates
+        # if self.classify:
+        self.class_to_num = {cls: idx for idx, cls in enumerate(classes)}
+        # else:
+            # self.class_to_label = coordinates
+        self.class_to_coord = coordinates
         
         self.preprocess_data()
         
@@ -106,8 +110,9 @@ class JointLabel:
                 if class_name == 'no_contact':
                     if not self.classify:
                         class_name = str(self.num_classes-1)
-                if class_name in self.class_to_label.keys():
-                    label = self.class_to_label[class_name]
+                if class_name in self.class_to_num.keys():
+                    class_num = self.class_to_num[class_name] # class num
+                    label = self.class_to_coord[class_name]
                     if self.robot_type == 'franka':
                         state = np.load(torque_path, allow_pickle=True)
                         if torque_file.split(".")[0] == 'no_contact':
@@ -127,12 +132,14 @@ class JointLabel:
                         else:
                             self.validation_data.append(joint_data)
                     if self.classify:
-                        label = F.one_hot(torch.tensor(label), num_classes=self.num_classes).numpy()
+                        label = F.one_hot(torch.tensor(class_num), num_classes=self.num_classes).numpy()
                     for i in range(len(state)):
                         if mode == 'train':
                             self.training_labels.append(label)
+                            self.training_class.append(class_num)
                         else:
                             self.validation_labels.append(label)
+                            self.validation_class.append(class_num)
         print(f"Finished loading data from {dir}")
 
 class SpotDataset(Dataset):
@@ -145,6 +152,7 @@ class SpotDataset(Dataset):
         folder_path = Path(__file__).parent.parent
         self.joint_data = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
         self.contact_labels = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
+        self.class_nums = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_class_nums_{seq}.npy", allow_pickle=True)
         self.data_min = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_min_{seq}.npy", allow_pickle=True)
         self.data_max = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_max_{seq}.npy", allow_pickle=True)
         # self.joint_data = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
@@ -160,28 +168,35 @@ class SpotDataset(Dataset):
             if idx + self.seq > len(self.joint_data):
                 joint_data = np.zeros((self.seq, self.joint_data.shape[1]))
                 contact_label = np.zeros((self.seq, self.contact_labels.shape[1]))
+                class_num = np.zeros((self.seq, self.class_nums.shape[1]))
                 for i in range(self.seq):
                     if idx + i < len(self.joint_data):
                         joint_data[i] = self.joint_data[idx + i]
                         contact_label[i] = self.contact_labels[idx + i]
+                        class_num[i] = self.class_nums[idx + i]
                     else:
                         joint_data[i] = self.joint_data[-1]
                         contact_label[i] = self.contact_labels[-1]
+                        class_num[i] = self.class_nums[-1]
             else:
                 joint_data = self.joint_data[idx:idx+self.seq]
                 contact_label = self.contact_labels[idx:idx+self.seq]
+                class_num = self.class_nums[idx:idx+self.seq]
             # concantenate
             joint_data = np.concatenate(joint_data, axis=0)
             contact_label = np.concatenate(contact_label, axis=0)
+            class_num = np.concatenate(class_num, axis=0)
         else:
             joint_data = self.joint_data[idx]
             contact_label = self.contact_labels[idx]   
+            class_num = self.class_nums[idx]
         
         # joint_data = self.normalize_data(joint_data)
 
         return {
             "joint_data": joint_data,
-            "contact_label": contact_label
+            "contact_label": contact_label,
+            "class_num": class_num
         }
 
     def normalize_data(self, data):
@@ -261,14 +276,20 @@ if __name__ == "__main__":
     os.makedirs(save_dir, exist_ok=True)
     if classify:
         training_labels = np.stack(joint_label.training_labels)  # Stack instead of simple array conversion
+        training_classnums = np.array(joint_label.training_class)
         validation_labels = np.stack(joint_label.validation_labels)
+        validation_classnums = np.array(joint_label.validation_class)
     else:
         training_labels = np.array(joint_label.training_labels)
+        training_classnums = np.array(joint_label.training_class)
         validation_labels = np.array(joint_label.validation_labels)
+        validation_classnums = np.array(joint_label.validation_class)
     np.save(os.path.join(save_dir,f"train_joint_data_{seq}.npy"), joint_label.training_data)
     np.save(os.path.join(save_dir,f"train_contact_labels_{seq}.npy"), training_labels)
+    np.save(os.path.join(save_dir, f"train_class_nums_{seq}.npy"), training_classnums)
     np.save(os.path.join(save_dir,f"val_joint_data_{seq}.npy"), joint_label.validation_data)
     np.save(os.path.join(save_dir,f"val_contact_labels_{seq}.npy"), validation_labels)
+    np.save(os.path.join(save_dir, f"val_class_nums_{seq}.npy"), validation_classnums)
     np.save(os.path.join(save_dir, f"data_min_{seq}.npy"), joint_label.scaler.data_min_)
     np.save(os.path.join(save_dir, f"data_max_{seq}.npy"), joint_label.scaler.data_max_)
 
