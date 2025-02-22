@@ -1,0 +1,58 @@
+name: "play_bow"
+slices_per_minute: 480.0
+moves {
+  type: "body_hold"
+  requested_slices: 12
+  body_hold_params {
+    rotation {
+      roll {
+        value: 0.02
+      }
+      pitch {
+        value: 0.22
+      }
+      yaw {
+        value: 0.02
+      }
+    }
+    translation {
+      x {
+      }
+      y {
+      }
+      z {
+        value: 1e-06
+      }
+    }
+    entry_slices {
+      value: 8.0
+    }
+    exit_slices {
+      value: 1e-06
+    }
+  }
+}
+moves {
+  type: "sway"
+  start_slice: 12
+  requested_slices: 40
+  sway_params {
+    vertical {
+      value: 1e-06
+    }
+    horizontal {
+      value: 0.12
+    }
+    roll {
+      value: 0.12
+    }
+    pivot: PIVOT_FRONT
+    style: SWAY_STYLE_STANDARD
+    pronounced {
+      value: 0.5
+    }
+    hold_zero_axes {
+      value: true
+    }
+  }
+}

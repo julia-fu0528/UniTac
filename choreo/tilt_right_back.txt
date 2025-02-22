@@ -6,13 +6,13 @@ moves {
   rotate_body_params {
     rotation {
       roll {
-        value: 0.13485000000000003
+        value: 0.18000000000000002
       }
       pitch {
-        value: 0.13485000000000003
+        value: 0.18000000000000002
       }
       yaw {
-        value: -0.14938
+        value: -0.2
       }
     }
     return_to_start_pose {

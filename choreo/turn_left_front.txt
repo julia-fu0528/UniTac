@@ -1,20 +1,22 @@
-name: "pace_left"
+name: "turn_left_front"
 slices_per_minute: 480.0
 moves {
   type: "goto"
-  requested_slices: 16
+  requested_slices: 24
   goto_params {
     absolute_position {
       x {
+        value: -0.1
       }
       y {
-        value: 0.4
+        value: 0.2
       }
     }
     absolute_yaw {
+      value: 1.4
     }
     step_position_stiffness {
-      value: 5.0
+      value: 3.0
     }
     duty_cycle {
       value: 0.5

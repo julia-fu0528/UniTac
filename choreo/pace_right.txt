@@ -8,13 +8,13 @@ moves {
       x {
       }
       y {
-        value: -0.3
+        value: -0.5
       }
     }
     absolute_yaw {
     }
     step_position_stiffness {
-      value: 3.0
+      value: 5.0
     }
     duty_cycle {
       value: 0.5

@@ -289,8 +289,8 @@ class Franka(Robot):
         for mesh in self.robot_meshes:
             self.total_mesh += mesh
 
-    # def joint_callback(self, state: JointState):
-        # self.current_state = state
+    def joint_callback(self, state: JointState):
+        self.current_state = state
 
     def choose_markers(self, num_points = 10000):
         # x: 0.05 (-0.03 ~ 0.08) y: 0.02 (-0.005 ~ 0.05) -- sides, z: 0.5 (0.14 ~ 0.98) --height
@@ -442,7 +442,7 @@ def main():
 
     
     original_colors = [np.asarray(pcd.colors).copy() for pcd in visualizer.point_clouds]
-    visualizer.marker_2vert(robot.markers_pos, radius = 0.01)
+    visualizer.marker_2vert(robot.markers_pos, radius = 0.02)
 
 
 
@@ -458,12 +458,15 @@ def main():
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
-    # for idx, pos in robot.markers_dict.items():
-    #     if robot_type == 'spot':
-    #         # robot.vis_markers(idx, pos)
-    #         robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
-    #     elif robot_type == 'franka':
-    #         robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
+    for idx, pos in robot.markers_dict.items():
+        # if int(idx) != 71:
+        # if int(idx) != 11 and int(idx) != 14 and int(idx) != 17 and int(idx) != 20 and int(idx) != 23 and int(idx) != 26 and int(idx) != 29 and int(idx) != 32:
+        # if int(idx) != 101: # 20, 44, 71, 85, 95, 101
+        #     continue
+        if robot_type == 'spot':
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
+        elif robot_type == 'franka':
+            robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
         
         
 
