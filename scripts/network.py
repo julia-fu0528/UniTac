@@ -15,20 +15,18 @@ class JointNetwork(nn.Module):
     def __init__(self, input_dim: int, output_dim: int, classify) -> None:
         super().__init__()
         if classify:
-            self.network = nn.Sequential(
-                nn.Flatten(),
-                nn.Linear(input_dim, 64),
-                nn.ReLU(), 
+            # self.network = nn.Sequential(
+            #     nn.Flatten(),
+            #     nn.Linear(input_dim, 64),
+            #     nn.ReLU(), 
 
-                nn.Linear(64, 64),
-                nn.ReLU(),
-                nn.Dropout(0.3),
+            #     nn.Linear(64, 64),
+            #     nn.ReLU(),
+            #     nn.Dropout(0.3),
 
-                nn.Linear(64, output_dim),
-                nn.Softmax(dim=1)
-            )
-        else:
-            # spot
+            #     nn.Linear(64, output_dim),
+            #     nn.Softmax(dim=1)
+            # )
             self.network = nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(input_dim, 64),
@@ -45,28 +43,34 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Dropout(0.3),
 
+                nn.Linear(128, output_dim),
+                nn.Softmax(dim=1)
+            )
+        else:
+            # spot
+            self.network = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(input_dim, 64),
+                nn.ReLU(), 
+                nn.Dropout(0.3),
+
+                nn.Linear(64,128), 
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(128, 256),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+
+                nn.Linear(128, 128),
+                nn.ReLU(),
+
                 nn.Linear(128, output_dim)
                 
             )
-            # franka
-            # self.network = nn.Sequential(
-            #     nn.Flatten(),
-            #     nn.Linear(input_dim, 64),
-            #     nn.ReLU(), 
-
-            #     nn.Linear(64,128), 
-            #     nn.ReLU(),
-            #     nn.Dropout(0.3),
-            #     nn.Linear(128, 256),
-            #     nn.ReLU(),
-            #     nn.Dropout(0.3),
-            #     nn.Linear(256, 128),
-            #     nn.ReLU(),
-            #     nn.Dropout(0.3),
-
-            #     nn.Linear(128, output_dim)
-                
-            # )
     
     def forward(self, x):
 
