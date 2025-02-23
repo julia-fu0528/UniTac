@@ -153,7 +153,7 @@ def vis_joint_torques(torque_path_list):
         else:
             all_torque_data = np.vstack((all_torque_data, torque_data))
     # Create the plot
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=(20, 3))
     # time_steps = np.arange(total_entries)
     time_steps = np.arange(total_entries).astype(int)  # Ensures y-axis has integer values
     num_joints = len(chosen_joints)
@@ -161,8 +161,8 @@ def vis_joint_torques(torque_path_list):
     max_values = np.max(all_torque_data, axis=0)
     min_values = np.min(all_torque_data, axis=0)
     all_torque_data = 2 * ((all_torque_data - min_values) / (max_values - min_values)) - 1
-    all_torque_data = all_torque_data[250:310, :]
-    time_steps = time_steps[250:310]
+    all_torque_data = np.append(all_torque_data[200:300, :], all_torque_data[800:900, :], axis=-1)
+    time_steps = np.append(time_steps[200:300], time_steps[800:900])
     for j in range(num_joints):
         print(f"time_steps.shape:{time_steps.shape}")
         print(f"all_torque_data.shape:{all_torque_data.shape}")
@@ -174,7 +174,7 @@ def vis_joint_torques(torque_path_list):
 
     # Add labels and legend
     plt.xlabel("Time")
-    plt.ylabel("Torques")
+    plt.ylabel("Normalized Torques")
     # plt.xlabel("Torque")
     # plt.ylabel("Vertical location of touch")
     # plt.title(f"Torque Over Time for Each Joint for {torque_path.split('.')[0]}")
@@ -867,7 +867,7 @@ if __name__ == "__main__":
     #                    "../../data/gouger1209/0/17.npy",
     #                    "../../data/gouger1209/0/14.npy",
     #                    "../../data/gouger1209/0/11.npy",])
-    vis_joint_torques(["../../data/test/44.npy"])
+    vis_joint_torques(["../../data/test/16.npy"])
     # vis_joint_pos(["../../data/gouger1209/46/20.npy",
     #                "../../data/gouger1209/40/20.npy",
     #                "../../data/gouger1209/0/20.npy",
