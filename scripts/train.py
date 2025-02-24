@@ -38,7 +38,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
         # accelerator="gpu",
         accelerator=device,
         # accelerator="cpu",
-        max_epochs= 10, # spot: 10
+        max_epochs= 15, # spot: 10
         logger=[tb_logger],
         callbacks=[checkpoint_callback, early_stop_callback]
     )
