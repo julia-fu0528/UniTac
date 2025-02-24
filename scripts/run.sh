@@ -1,20 +1,20 @@
 
 # echo "################# COLLECT DATA ###########################"
-# python store_robot_state.py --markers_path ../data/franka_10markers_pos.txt\
-#                             --output_dir ../data/franka_right/test21 \
-#                             --robot_type franka --duration 2 \
+# python store_robot_state.py --markers_path ../data/gouger_markers_pos.txt\
+#                             --output_dir ../data/test \
+#                             --robot_type spot --duration 2 \
 #                             # --hostname 138.16.161.22 \
 
 
-echo "################# DATALOADER ###############################"
-python dataset.py --session gouger1209 --data_dir ../data \
-                    --markers_path ../data/gouger_markers_pos.txt \
-                    --seq 1  --robot_type spot  \
+# echo "################# DATALOADER ###############################"
+# python dataset.py --session gouger1209 --data_dir ../data \
+#                     --markers_path ../data/gouger_markers_pos.txt \
+#                     --seq 1  --robot_type spot  \
 
-echo "################# TRAINING ###############################"
-python train.py --session gouger1209 --data_dir ../data \
-                --markers_path ../data/gouger_markers_pos.txt --device "gpu" \
-                --seq 1 --robot_type spot 
+# echo "################# TRAINING ###############################"
+# python train.py --session gouger1209 --data_dir ../data \
+#                 --markers_path ../data/gouger_markers_pos.txt --device "gpu" \
+#                 --seq 1 --robot_type spot 
 
 
 echo "################# PREDICTING ################################"

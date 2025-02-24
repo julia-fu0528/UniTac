@@ -258,7 +258,7 @@ class Spot(Robot):
             state_dict.append(state)
         
         # save data 
-        np.save(output_path, state_dict)
+        # np.save(output_path, state_dict)
 
         print(f"Touch Data Collected for marker position {idx}, saved in {output_path}\n")
 
@@ -269,12 +269,12 @@ class Spot(Robot):
 
 
 class Franka(Robot):
-    def __init__(self, output_dir, markers_path, robot_type):
-        import rospy
-        from rospy import Subscriber, Rate
-        from sensor_msgs.msg import JointState
+    def __init__(self, output_dir, markers_path, robot_type, visualizer):
+        # import rospy
+        # from rospy import Subscriber, Rate
+        # from sensor_msgs.msg import JointState
 
-        super().__init__(output_dir, markers_path, robot_type)
+        super().__init__(output_dir, markers_path, robot_type, visualizer)
         rospy.init_node("save_franka_state")
         self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
         self.save_rate = Rate(30)
@@ -289,8 +289,8 @@ class Franka(Robot):
         for mesh in self.robot_meshes:
             self.total_mesh += mesh
 
-    def joint_callback(self, state: JointState):
-        self.current_state = state
+    # def joint_callback(self, state: JointState):
+        # self.current_state = state
 
     def choose_markers(self, num_points = 10000):
         # x: 0.05 (-0.03 ~ 0.08) y: 0.02 (-0.005 ~ 0.05) -- sides, z: 0.5 (0.14 ~ 0.98) --height
@@ -451,10 +451,10 @@ def main():
     # robot.save_markers(original_colors=original_colors)
 
 
-    if robot_type == 'spot':
-        robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
-    elif robot_type == 'franka':
-        robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
+    # if robot_type == 'spot':
+        # robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
+    # elif robot_type == 'franka':
+        # robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
 
@@ -463,6 +463,8 @@ def main():
         # if int(idx) != 11 and int(idx) != 14 and int(idx) != 17 and int(idx) != 20 and int(idx) != 23 and int(idx) != 26 and int(idx) != 29 and int(idx) != 32:
         # if int(idx) != 101: # 20, 44, 71, 85, 95, 101
         #     continue
+        if int(idx) != 71: 
+            continue
         if robot_type == 'spot':
             robot.save_data(idx, output_dir, original_colors=original_colors, duration=duration)
         elif robot_type == 'franka':

@@ -610,6 +610,19 @@ def main():
             if robot_type == 'spot' and options.choreo:
                 if idx > 50:
                     realtime_robot.respond(pos)
+            elif robot_type == 'franka':
+                pos_low = np.array([3.44e-02, 4.73e-02, 4.49e-01])
+                pos_mid = np.array([-7.81e-04, 3.83e-02, 8.80e-01])
+                pos_high = np.array([1.08e-01, 3.63e-02, 1.07e+00])
+                threshold = 0.05
+                if np.linalg.norm(pos - pos_low) < threshold:
+                    print("Low")
+                elif np.linalg.norm(pos - pos_mid) < threshold:
+                    print("Mid")
+                elif np.linalg.norm(pos - pos_high) < threshold:
+                    print("High")
+
+
 
     except KeyboardInterrupt:
         print("Exiting real-time inference...")

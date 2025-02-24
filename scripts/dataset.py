@@ -9,8 +9,8 @@ from pathlib import Path
 import argparse
 from natsort import natsorted
 import torch
-import torchvision.models as models
-import torchvision.transforms as transforms
+# import torchvision.models as models
+# import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 import lightning as L
 import torch.nn.functional as F
