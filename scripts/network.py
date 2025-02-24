@@ -52,7 +52,7 @@ class JointNetwork(nn.Module):
                 nn.Flatten(),
                 nn.Linear(input_dim, 64),
                 nn.ReLU(), 
-                nn.Dropout(0.3),
+                # nn.Dropout(0.3),
 
                 nn.Linear(64,128), 
                 nn.ReLU(),
@@ -65,8 +65,8 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Dropout(0.3),
 
-                nn.Linear(128, 128),
-                nn.ReLU(),
+                # nn.Linear(128, 128),
+                # nn.ReLU(),
 
                 nn.Linear(128, output_dim)
                 

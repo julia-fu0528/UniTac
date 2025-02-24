@@ -611,9 +611,9 @@ def main():
                 if idx > 50:
                     realtime_robot.respond(pos)
             elif robot_type == 'franka':
-                pos_low = np.array([3.44e-02, 4.73e-02, 4.49e-01])
-                pos_mid = np.array([-7.81e-04, 3.83e-02, 8.80e-01])
-                pos_high = np.array([1.08e-01, 3.63e-02, 1.07e+00])
+                pos_low = np.array([3.44e-02, 4.73e-02, 4.49e-01]) # green
+                pos_mid = np.array([-7.81e-04, 3.83e-02, 8.80e-01]) # red
+                pos_high = np.array([1.08e-01, 3.63e-02, 1.07e+00]) # yellow
                 threshold = 0.05
                 if np.linalg.norm(pos - pos_low) < threshold:
                     print("Low")
