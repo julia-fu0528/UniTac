@@ -9,17 +9,17 @@
 # echo "################# DATALOADER ###############################"
 # python dataset.py --session gouger1209 --data_dir ../data \
 #                     --markers_path ../data/gouger_markers_pos.txt \
-                    # --seq 1  --robot_type spot  \
+#                     --seq 1  --robot_type spot --classify \
 
 echo "################# TRAINING ###############################"
 python train.py --session gouger1209 --data_dir ../data \
                 --markers_path ../data/gouger_markers_pos.txt --device "gpu" \
-                --seq 1 --robot_type spot \
+                --seq 1 --robot_type spot --classify \
 
 
-echo "################# PREDICTING ################################"
-python predict.py --ckpts_path ../gouger_logs/franka/regression/version_611/checkpoints/best.ckpt\
-                  --markers_path ../data/franka_10markers_pos.txt --data_dir ../data/franka_right --device cpu --seq 1 --robot_type franka\
+# echo "################# PREDICTING ################################"
+# python predict.py --ckpts_path ../gouger_logs/franka/regression/version_611/checkpoints/best.ckpt\
+#                   --markers_path ../data/franka_10markers_pos.txt --data_dir ../data/franka_right --device cpu --seq 1 --robot_type franka \
 #                   --hostname 138.16.161.22 \
 #                   --choreo \
 #                   --choreography-filepaths ../choreo/lay_down.txt ../choreo/sit.txt\
