@@ -19,18 +19,30 @@ class JointNetwork(nn.Module):
             #     nn.Flatten(),
             #     nn.Linear(input_dim, 64),
             #     nn.ReLU(), 
+            #     # nn.Dropout(0.3),
 
-            #     nn.Linear(64, 64),
+            #     nn.Linear(64,128), 
+            #     nn.ReLU(),
+            #     nn.Dropout(0.3),
+            #     nn.Linear(128, 256),
+            #     nn.ReLU(),
+            #     nn.Dropout(0.3),
+                
+            #     nn.Linear(256, 128),
             #     nn.ReLU(),
             #     nn.Dropout(0.3),
 
-            #     nn.Linear(64, output_dim),
+            #     # nn.Linear(128, 128),
+            #     # nn.ReLU(),
+
+            #     nn.Linear(128, output_dim),
             #     nn.Softmax(dim=1)
             # )
             self.network = nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(input_dim, 64),
                 nn.ReLU(), 
+                # nn.Dropout(0.3),
 
                 nn.Linear(64,128), 
                 nn.ReLU(),
@@ -43,8 +55,14 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Dropout(0.3),
 
+                # nn.Linear(256, 128),
+                # nn.ReLU(),
+                # nn.Dropout(0.3),
+
+
                 nn.Linear(128, output_dim),
                 nn.Softmax(dim=1)
+                
             )
         else:
             # spot
@@ -65,8 +83,10 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Dropout(0.3),
 
-                # nn.Linear(128, 128),
+                # nn.Linear(256, 128),
                 # nn.ReLU(),
+                # nn.Dropout(0.3),
+
 
                 nn.Linear(128, output_dim)
                 
@@ -92,6 +112,7 @@ class ResidualBlock(nn.Module):
 class LitRobot(L.LightningModule):
     def __init__(self, input_dim: int, output_dim: int, markers_path, classify, seq, robot_type) -> None:
         super().__init__()
+        self.output_dim = output_dim
         self.model = JointNetwork(input_dim, output_dim, classify)
         self.seq = seq
         self.test_outputs = {"preds": [], "labels": []}
@@ -99,6 +120,8 @@ class LitRobot(L.LightningModule):
         self.val_outputs = {"preds": [], "labels": []}
         self.robot_type = robot_type
         # self.device = device   
+
+        # self.ema_alpha = 0.7
 
         self.classify = classify
         self.learning_rate = 2.5e-3 # regression: 2.5e-3
@@ -111,6 +134,10 @@ class LitRobot(L.LightningModule):
             tuple(np.round(v.astype(np.float32), decimals=5)): k for k, v in self.marker_positions.items()}
 
         self.marker_posarray = np.array(list(self.marker_positions.values()))
+
+        self.buffers = {}
+        # _, self.weights = self.create_buffers(seq, alpha=0.3, sliding_win=10)
+
     
     def forward(self, x):
         return self.model(x)
@@ -126,11 +153,12 @@ class LitRobot(L.LightningModule):
         x, y = batch["joint_data"].float().to(device), batch["contact_label"].float().to(device)
 
         class_nums = batch["class_num"].float().to(device)
-
+        x = x[:, :-1]
 
         y_hat = self(x) # shape batch_size by 3
 
         threshold = 0.1 * np.sqrt(self.seq)
+        # print(f"threshold: {threshold}") 
         if self.classify:
             y_hat_idx = torch.argmax(y_hat, dim=1)
             y_idx = torch.argmax(y, dim=1)
@@ -179,9 +207,31 @@ class LitRobot(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         device = self._get_device()
         x, y = batch["joint_data"].float().to(device), batch["contact_label"].float().to(device)
-
+        
+        seq_ids = x[:, -1]
+        x = x[:, :-1]
         class_nums = batch["class_num"].float().to(device)
         y_hat = self(x)
+        # print(f"y_hat before: {y_hat}")
+
+        copy_yhat = y_hat.detach().cpu().numpy()
+        # apply ema
+        for i in range(y_hat.shape[0]):
+            key = int(seq_ids[i].item())
+            if self.buffers.get(key) is None:
+                # print(f"key:{key}")
+                self.buffers[key], self.weights = self.create_buffers(self.seq, alpha=0.1, sliding_win = 60) # 60 for spot, 40 for franka
+                # print(40)
+            self.buffers[key] = np.roll(self.buffers[key], 1, axis=0)
+            # print(f"self.buffer before: {self.buffer}")
+            buffer = self.buffers[key]
+            # slf.buffer[0:self.seq] = y_hat[i:i+self.seq, :].detach().cpu().numpy()
+            buffer[0:self.seq] = copy_yhat[i:i+self.seq, :]
+            # print(f"self.buffer after: {self.buffer}")
+            y_hat[i:i+self.seq] = torch.tensor(np.dot(self.weights, buffer), dtype=torch.float32).to(y_hat.device) # doesn't work for seq > 1
+                # copy_yhat = np.dot(self.weights, self.buffer)
+
+        # y_hat = torch.tensor(copy_yhat, dtype=torch.float32).to(y_hat.device)
 
         threshold = 0.1 * np.sqrt(self.seq)
         if self.classify:
@@ -448,3 +498,18 @@ class LitRobot(L.LightningModule):
         self.eval()  # Ensure the model is in evaluation mode
         with torch.no_grad():
             return self(inputs)
+
+    def create_buffers(self, seq_win, alpha=0.95, sliding_win=3):
+        seq_win = self.seq
+        self.alpha = alpha
+        buffer = np.zeros((sliding_win, self.output_dim))
+        # print(f"buffer shape: {buffer.shape}")
+        weights = np.power((1-alpha), np.arange(sliding_win))
+        weights = alpha * weights
+        if not self.classify:
+            weights = weights / np.sum(weights)
+        
+        # self.buffer = buffer
+        # self.weights = weights
+
+        return buffer, weights

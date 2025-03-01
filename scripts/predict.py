@@ -600,7 +600,14 @@ def main():
     data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.7, sliding_win=20)
     try:
         idx = 0
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()  
         while True:
+            if idx > 1000:
+                end.record()
+                torch.cuda.synchronize()
+                print(f"time:{start.elapsed_time(end) / 1000}")
             idx += 1
             # Real-time prediction
             realtime_robot.update_vis()

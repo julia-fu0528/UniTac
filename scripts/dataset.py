@@ -37,6 +37,8 @@ class JointLabel:
         self.validation_labels = [] 
         self.validation_class = [] 
         self.scaler = MinMaxScaler(feature_range=(-1, 1))
+        self.valseq_id = 0
+        self.trainseq_id = 0
         
         markers_pos = np.loadtxt(markers_path, delimiter=',')
         self.marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
@@ -94,11 +96,22 @@ class JointLabel:
         
         all_data = self.training_data + self.validation_data
         all_data = np.array(all_data)
-        self.scaler.fit(all_data)
-        self.training_data = self.scaler.transform(self.training_data)
-        self.validation_data = self.scaler.transform(self.validation_data)
+        print(f"all_data:{all_data[:, -1]}")
+        self.scaler.fit(all_data[:, :-1])
+        # self.scaler.fit(all_data)
+        training_data_np = np.array(self.training_data)
+        validation_data_np = np.array(self.validation_data)
 
-        
+        training_data_np[:, :-1] = self.scaler.transform(training_data_np[:, :-1])
+        validation_data_np[:, :-1] = self.scaler.transform(validation_data_np[:, :-1])
+        # self.training_data = self.scaler.transform(training_data)
+        # self.validation_data = self.scaler.transform(validation_data)
+
+
+        self.training_data = training_data_np.tolist()
+        self.validation_data = validation_data_np.tolist()
+        # print(f"self.validation_data:{np.array(self.validation_data)[:, -1]}")
+
         print(f"Finished data preprocessing")
     
     def load_data(self, dir, mode='train'):
@@ -117,11 +130,30 @@ class JointLabel:
                         state = np.load(torque_path, allow_pickle=True)
                         if torque_file.split(".")[0] == 'no_contact':
                             state = state[:60]
+                        if mode == 'val':
+                            seq_ids = np.full((state.shape[0], 1), self.valseq_id)
+                            self.valseq_id += 1
+                                # print(f"val seq id: {self.valseq_id}")
+                        else:
+                            seq_ids = np.full((state.shape[0], 1), self.trainseq_id)
+                            self.trainseq_id += 1
+                                # print(f"train seq id: {self.trainseq_ccccid}")
+                        state = np.hstack((state, seq_ids))
                         # normalized_data = state
                     elif self.robot_type == 'spot':
                         torque, _, _, _ = load_joint_torques(torque_path)
                         joint_angle, _, _, _ = load_joint_positions(torque_path)
-                        state = np.hstack((torque, joint_angle))
+                        if mode == 'val':
+                            seq_ids = np.full((torque.shape[0], 1), self.valseq_id)
+                            self.valseq_id += 1
+                                # print(f"val seq id: {self.valseq_id}")
+                        else:
+                            seq_ids = np.full((torque.shape[0], 1), self.trainseq_id)
+                            self.trainseq_id += 1
+                                # print(f"train seq id: {self.trainseq_ccccid}")
+                        state = np.hstack((torque, joint_angle, seq_ids))
+                        # state = np.hstack((torque, joint_angle))
+                        # print(f"seq_ids:{seq_ids}")
                         # normalized_data = 2 * ((state - state.min()) / 
                         #                         (state.max() - state.min())) - 1
                     # normalized_data = 2 * ((state - state.min(axis=1, keepdims=True)) / 
@@ -154,6 +186,7 @@ class SpotDataset(Dataset):
         self.contact_labels = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
         self.class_nums = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/{mode}_class_nums_{seq}.npy", allow_pickle=True)
         self.data_min = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_min_{seq}.npy", allow_pickle=True)
+        print(f"self.data_min:{self.data_min.shape}")
         self.data_max = np.load(f"../preprocessed_data/{robot_type}/{self.dataset_mode}/data_max_{seq}.npy", allow_pickle=True)
         # self.joint_data = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_joint_data_{seq}.npy", allow_pickle=True)
         # self.contact_labels = np.load(f"{folder_path}/preprocessed_data/{self.dataset_mode}/{mode}_contact_labels_{seq}.npy", allow_pickle=True)
@@ -192,7 +225,7 @@ class SpotDataset(Dataset):
             class_num = self.class_nums[idx]
         
         # joint_data = self.normalize_data(joint_data)
-
+        # print(f"joint data: {joint_data[-1]}")
         return {
             "joint_data": joint_data,
             "contact_label": contact_label,
