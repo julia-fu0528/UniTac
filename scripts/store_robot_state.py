@@ -95,11 +95,12 @@ class Spot(Robot):
             self.total_mesh += mesh
     
     def choose_markers(self, num_points = 10000):
-        markers_pos = [[0.45, 0.08, -0.034],[0.45, -0.08, -0.033], # front
-                    [-0.45, 0.05, 0.05],[-0.45, -0.05, 0.05], # back
-                    [0.13, 0.14, 0.01], [-0.13, 0.14, -0.01], # left
-                    [0.1, -0.15, -0.01], [-0.13, -0.14, -0.01], # right
-                    [0.1, 0.05, 0.09], [-0.12, -0.01, 0.09],] # top
+        markers_pos = [
+            # [0.45, 0.08, -0.034],[0.45, -0.08, -0.033], # front
+                    [-0.45, 0.05, 0.05],[-0.45, -0.05, 0.05],] # back
+                    # [0.13, 0.14, 0.01], [-0.13, 0.14, -0.01], # left
+                    # [0.1, -0.15, -0.01], [-0.13, -0.14, -0.01], # right
+                    # [0.1, 0.05, 0.09], [-0.12, -0.01, 0.09],] # top
         for i in range(8): # LEFT: 24
             x = -0.2 + i / 8 * (0.25 - (-0.2))
             for j in range(3):
@@ -115,19 +116,22 @@ class Spot(Robot):
             for j in range(3):
                 y = -0.04 + j/3 * (0.08 - (-0.04))
                 markers_pos.append([x, y, 0.08])
-        markers_pos.extend([[-0.2, 0.08, 0.08], [-0.12, 0.08, 0.08], [0.01, 0.08, 0.08], 
-                            [-0.2, -0.07, 0.08], [0.01, -0.07, 0.08], [0.1, -0.07, 0.08]])
-        for i in range(4): # FRONT: 8
-            y = -0.07 + i / 4 * (0.11 - (-0.07))
-            markers_pos.append([0.39, y, -0.08])
-            markers_pos.append([0.45, y, 0.04])
-        # markers_pos.extend([[0.45, 0.075, 0.044], [0.45, 0.03, 0.04], [0.45, -0.02, 0.042], [0.45, -0.067, 0.045],
-                            # [0.39, 0.075, -0.07], [0.39, 0.03, -0.07], [0.39, -0.02, -0.07], [0.39, -0.067, -0.07]])
-        for i in range(4):  # BACK: 10
-            y = -0.067 + i / 4 * (0.11 - (-0.067))
-            markers_pos.append([-0.40, y, -0.06])
-            markers_pos.append([-0.42, y, 0.04])
-        markers_pos.extend([[-0.42, -0.07, -0.01], [-0.42, 0.07, -0.01]])
+        # markers_pos.extend([[-0.2, 0.08, 0.08], [-0.12, 0.08, 0.08], [0.01, 0.08, 0.08], 
+                            # [-0.2, -0.07, 0.08], [0.01, -0.07, 0.08], [0.1, -0.07, 0.08]])
+        # for i in range(4): # FRONT: 8
+        #     y = -0.08 + i / 4 * (0.14 - (-0.08))
+        #     markers_pos.append([0.39, y, -0.08])
+        #     markers_pos.append([0.45, y, 0.04])
+        markers_pos.extend([[0.45, 0.08, 0.044], [0.45, 0.025, 0.04], [0.45, -0.02, 0.042], [0.45, -0.07, 0.045],
+                            [0.39, 0.08, -0.07], [0.39, 0.025, -0.08], [0.39, -0.02, -0.08], [0.39, -0.07, -0.07]])
+        # for i in range(4):  # BACK: 10
+        #     y = -0.067 + i / 4 * (0.11 - (-0.067))
+        #     markers_pos.append([-0.40, y, -0.06])
+        #     markers_pos.append([-0.42, y, 0.04])
+        markers_pos.extend([[-0.40, 0.09, -0.06], [-0.40, 0.02, -0.055], [-0.40, -0.025, -0.055], [-0.40, -0.065, -0.06],
+                            [-0.42, 0.09, 0.055], [-0.42, 0.03, 0.03], [-0.42, -0.025, 0.025], [-0.42, -0.065,0.05]])
+        # markers_pos.extend([[-0.42, -0.07, -0.01], [-0.42, 0.07, -0.01]])
+        markers_pos.extend([[-0.42, -0.08, 0], [-0.42, 0.07, 0]])
         # arm
         markers_pos.append([ 0.12,  0,  0.3])
         markers_pos.append([ 0.25,  0,  0.3])
@@ -275,13 +279,14 @@ class Franka(Robot):
         # from sensor_msgs.msg import JointState
 
         super().__init__(output_dir, markers_path, robot_type, visualizer)
-        rospy.init_node("save_franka_state")
-        self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
-        self.save_rate = Rate(30)
+        # rospy.init_node("save_franka_state")
+        # self.joint_sub = Subscriber("/right_arm/joint_states", JointState, self.joint_callback)
+        # self.save_rate = Rate(30)
         self.current_state = None
 
          # load robot mesh from urdf
         joint_positions = {joint.name: 0.0 for joint in self.robot.joints}  # Zero configuration
+        # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
         link_fk_transforms = compute_forward_kinematics(self.robot, joint_positions)
         trimesh_fk, _ = prepare_trimesh_fk(self.robot, link_fk_transforms, folder=self.folder_path)
         self.robot_meshes, _ = convert_trimesh_to_open3d(trimesh_fk)
@@ -355,8 +360,8 @@ class Franka(Robot):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
         # VISUALIZE
-        joint_position = self.current_state.position
-        # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74])
+        # joint_position = self.current_state.position
+        joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74])
         cfg = {joint: joint_position[idx] for idx, joint in enumerate(self.visualizer.robot.actuated_joint_names)}
         self.visualizer.visualize(cfg=cfg)
         if idx != -1:
@@ -379,6 +384,22 @@ class Franka(Robot):
 
             print(f"YOU CAN TOUCH THE ROBOT NOW. Data collection will start right away, please make sure you are touching the Robot.\n")
         else:
+            for idx in range(len(self.markers_pos)):
+                pcd_indices = self.visualizer.pcd_indices[int(idx)]
+                local_indices = self.visualizer.local_indices[int(idx)]
+                base_pcd = self.visualizer.point_clouds[pcd_indices[0]]
+                points = np.asarray(base_pcd.points)
+                pos = points[local_indices[0]]
+                if not base_pcd.has_normals():
+                    base_pcd.compute_normals()
+                normals = np.asarray(base_pcd.normals)
+                normal = normals[local_indices[0]]
+
+                for pcd_idx, local_idx in zip(pcd_indices, local_indices):
+                    cur_pcd = self.visualizer.point_clouds[pcd_idx]
+                    colors = np.asarray(cur_pcd.colors)
+                    colors[local_idx] = [1, 0, 0]
+                    cur_pcd.colors = o3d.utility.Vector3dVector(colors)
             o3d.visualization.draw_geometries(self.visualizer.point_clouds, zoom = 0.7, front = [1, 0, 0], lookat=[0, 0, 0.5], up = [0, 1, 0])
             print("DON'T TOUCH YET! COLLECTING NO CONTACT DATA")
 
@@ -430,8 +451,8 @@ def main():
         # Create robot object with an image client.
         hostname = options.hostname
         robot = Spot(output_dir, markers_path, robot_type, visualizer=visualizer, hostname=hostname)
-        markers_positions = robot.load_markers()
-        # robot.markers_pos = robot.choose_markers()
+        # markers_positions = robot.load_markers()
+        robot.markers_pos = robot.choose_markers()
     elif robot_type == 'franka':
         robot = Franka(output_dir, markers_path, robot_type, visualizer=visualizer)
         markers_pos = robot.choose_markers()
@@ -451,13 +472,13 @@ def main():
     # robot.save_markers(original_colors=original_colors)
 
 
-    # if robot_type == 'spot':
-        # robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
-    # elif robot_type == 'franka':
-        # robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
+    if robot_type == 'spot':
+        robot.save_data(-1, os.path.join(output_dir, f"no_contact.npy"), original_colors=original_colors, duration=duration)
+    elif robot_type == 'franka':
+        robot.save_data(-1,  os.path.join(output_dir, f"no_contact.npy"),  original_colors=original_colors, duration=duration)
     # vertices = np.asarray(robot.robot_meshes[0].vertices)
     # robot.robot_meshes[0].compute_vertex_normals()
-
+    return
     for idx, pos in robot.markers_dict.items():
         # if int(idx) != 71:
         # if int(idx) != 11 and int(idx) != 14 and int(idx) != 17 and int(idx) != 20 and int(idx) != 23 and int(idx) != 26 and int(idx) != 29 and int(idx) != 32:

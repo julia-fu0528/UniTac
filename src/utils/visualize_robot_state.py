@@ -9,6 +9,9 @@ from natsort import natsorted
 import matplotlib.pyplot as plt
 import os
 import trimesh
+from scipy.interpolate import make_interp_spline
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
+
 import trimesh.viewer
 from matplotlib.ticker import MaxNLocator
 
@@ -28,10 +31,12 @@ from helpers import sample_points_from_mesh
 from visualize_mesh import create_viewing_parameters, visualize_with_camera
 
 # from pykdl_utils.kdl_kinematics import KDLKinematics
-def load_joint_torques(torque_path):
+def load_joint_torques(torque_path, franka=False):
     # load the npy data
     # torque_path = "data/touch_back.npy"
     state = np.load(torque_path, allow_pickle=True)
+    if franka:
+        return state[:, :7], state.shape[0], 7, ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7']
     state_dict = {}
     torque_dict = {}
     for i in range(len(state)):
@@ -135,16 +140,16 @@ def vis_joint_pos_delta(joint_pos_path1, joint_pos_path2):
     plt.show()
 
 
-def vis_joint_torques(torque_path_list):
+def vis_joint_torques(torque_path_list, franka=False):
     # torque_data, num_entries, num_joints, joint_names = load_joint_torques(torque_path)
     all_torque_data = None
     total_entries = 0
     # horizontal left: 0, 6
     # vertical left: 2, 5, 8, 11
-    chosen_joints = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] #12, 15
+    # chosen_joints = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] #12, 15
+    chosen_joints = [0, 1, 2, 3, 4, 5, 6] 
     for torque_path in torque_path_list:
-        torque_data, num_entries, num_joints, joint_names = load_joint_torques(torque_path)
-        # torque_data = np.mean(torque_data, axis=0)
+        torque_data, num_entries, num_joints, joint_names = load_joint_torques(torque_path, franka) #TODO
         # torque_data = torque_data[chosen_joints]
         total_entries += num_entries
         # total_entries += 1
@@ -153,7 +158,7 @@ def vis_joint_torques(torque_path_list):
         else:
             all_torque_data = np.vstack((all_torque_data, torque_data))
     # Create the plot
-    plt.figure(figsize=(20, 3))
+    plt.figure(figsize=(10, 3))
     # time_steps = np.arange(total_entries)
     time_steps = np.arange(total_entries).astype(int)  # Ensures y-axis has integer values
     num_joints = len(chosen_joints)
@@ -161,12 +166,12 @@ def vis_joint_torques(torque_path_list):
     max_values = np.max(all_torque_data, axis=0)
     min_values = np.min(all_torque_data, axis=0)
     all_torque_data = 2 * ((all_torque_data - min_values) / (max_values - min_values)) - 1
-    all_torque_data = all_torque_data[200:300, :]
-    time_steps = time_steps[200:300]
+    all_torque_data = all_torque_data[20:50, :]
+    time_steps = time_steps[20:50]
     for j in range(num_joints):
         print(f"time_steps.shape:{time_steps.shape}")
         print(f"all_torque_data.shape:{all_torque_data.shape}")
-        plt.plot(time_steps, all_torque_data[:, j], label=f'Joint {joint_names[j]}')
+        plt.plot(time_steps, all_torque_data[:, j], label=f'Joint {joint_names[j]}') # , linewidth=5
         # plt.plot(all_torque_data[:, j].astype(float), time_steps, label=f'Joint {joint_names[j]}')
     # plt.xticks(np.linspace(all_torque_data.min(), all_torque_data.max(), num=5))  # Ensure float ticks
     # plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.2f}"))  # Display floats with 1 decimal
@@ -858,6 +863,46 @@ def overlay_joint_state(joint_path_list):
 
     plt.show()
 
+def plot_acc(thresholds, accs, title=None, save_path=None):
+    plt.figure(figsize=(8, 6))
+    # plt.plot(thresholds, accs[0],  linewidth = 5)
+    plt.plot(thresholds, accs[0], linewidth=3, marker='o', markersize=7, linestyle='-', color='#1f77b4', markevery=2)
+
+    plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=10))  # Increase the number of bins
+    plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=15))  # Increase the number of bins
+    # plt.gca().yaxis.set_major_locator(MultipleLocator(3))  # Major ticks every 2
+    # plt.gca().yaxis.set_minor_locator(AutoMinorLocator(3))  # Add minor ticks
+    plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))  # Display floats with 1 decimal
+    # plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.1f}"))  # Display floats with 1 decimal
+    # plt.plot(thresholds, accs[0], marker='o', markersize=6, linestyle='', color='#1f77b4', markevery=5)
+
+    # plt.gca().yaxis.set_major_locator(MaxNLocator(integer=True))  # Force y-axis to be integers
+
+    # Add labels and legend
+    # plt.xlabel("Height")
+    # plt.ylabel("Joint Angle")
+    plt.xlabel("Threshold (cm)", fontsize = 18, fontweight='bold')
+    plt.ylabel("Accuracy (%)", fontsize=18,  fontweight='bold')
+    # plt.title(f"Joint Position Over Time for Each Joint for {joint_pos_path.split('.')[0]}")
+    # plt.title("Change in Accuracy with respect to Threshold", fontsize=20)
+
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+
+    # plt.legend(fontsize=16)
+    # plt.legend(fontsize=14, loc="upper left", bbox_to_anchor=(1, 1), frameon=True)
+
+    # plt.legend()
+    plt.grid(True)
+    # plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7, which="both")
+    # plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+    output_dir = f"vis/0218"
+    os.makedirs(output_dir, exist_ok=True)
+    save_path = os.path.join(output_dir, "test.png")
+    print(f"save_path: {save_path}")
+    plt.savefig(save_path, format="png", dpi=300)  # Save as a PNG file with 300 dpi resolution
+
+    plt.show()
 
 if __name__ == "__main__":
     # left mid 20
@@ -868,7 +913,37 @@ if __name__ == "__main__":
     #                    "../../data/gouger1209/0/14.npy",
     #                    "../../data/gouger1209/0/11.npy",])
     # 62
-    vis_joint_torques(["../../data/gouger1209/0/62.npy"])
+    # vis_joint_torques(["../../data/franka_right/test25/9.npy"], franka=True) # 0, 4, 5, 7, 9
+
+
+    # thresholds = np.array([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
+    # acc = np.array([78.4, 81.5, 84.0, 86.0, 87.7, 89.1, 90.1, 91.0, 91.7, 92.4, 93.1, 93.7, 94.2, 94.7,
+    #                 95.1, 95.5, 95.9])
+    # 7.5
+    thresholds = np.array([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26
+                          , 27, 28, 29, 30, 31, 32, 33, 34])
+    acc_spot = np.array([71.1, 76.7, 80.8, 83.8, 86.1, 88.0, 89.5, 90.7, 91.8, 92.6, 93.4, 94.0, 94.5, 95.0, 95.3,
+                  95.7, 96.0, 96.3, 96.6, 96.8, 97.0, 97.3, 97.5, 97.7, 97.9, 98.1, 98.2])
+    # acc_franka = np.array([])
+    plot_acc(thresholds,[acc_spot], "test", "test.png")
+
+
+    # dir = "../../data/franka_right"
+    # # all dirs in dir
+    # dirs = [os.path.join(dir, d) for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
+    # total_entries = 0
+    # for d in dirs:
+    #     # all npy files in dir
+    #     npy_files = [os.path.join(d, f) for f in os.listdir(d) if f.endswith('.npy')]
+    #     for npy_file in npy_files:
+    #         joint_pos_data, num_entries, num_joints, joint_names = load_joint_torques(npy_file, franka=True)
+    #         total_entries += num_entries
+    # # torque_data, num_entries, num_joints, joint_names = load_joint_torques("../../data/gouger1209/0/32.npy")
+    # print(f"total_entries: {total_entries}")
+
+
+
+
     # vis_joint_pos(["../../data/gouger1209/46/20.npy",
     #                "../../data/gouger1209/40/20.npy",
     #                "../../data/gouger1209/0/20.npy",

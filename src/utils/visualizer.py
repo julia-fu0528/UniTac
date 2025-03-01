@@ -13,7 +13,7 @@ class RobotVisualizer():
         self.point_clouds = []
         self.robot_type = robot_type
 
-        self.points_per_mesh = 300 if robot_type == "spot" else 3000
+        self.points_per_mesh = 300 if robot_type == "spot" else 30000
         self.robot = URDF.load(f"../{robot_type}_description/{robot_type}.urdf")
         
         # for markers
@@ -30,6 +30,8 @@ class RobotVisualizer():
                                'arm_wr0': -0.0010634660720825195, 'arm_wr1': -1.5685768127441406, 'arm_f1x': -0.0076329708099365234}
             self.fk_default = self.robot.visual_trimesh_fk(cfg=joint_positions)
         else:
+            # pr
+            # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
             self.fk_default = self.robot.visual_trimesh_fk(cfg=None)
         # link -> world
         self.fk_meshes = []
