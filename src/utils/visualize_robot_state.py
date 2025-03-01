@@ -161,8 +161,8 @@ def vis_joint_torques(torque_path_list):
     max_values = np.max(all_torque_data, axis=0)
     min_values = np.min(all_torque_data, axis=0)
     all_torque_data = 2 * ((all_torque_data - min_values) / (max_values - min_values)) - 1
-    all_torque_data = np.append(all_torque_data[200:300, :], all_torque_data[800:900, :], axis=-1)
-    time_steps = np.append(time_steps[200:300], time_steps[800:900])
+    all_torque_data = all_torque_data[200:300, :]
+    time_steps = time_steps[200:300]
     for j in range(num_joints):
         print(f"time_steps.shape:{time_steps.shape}")
         print(f"all_torque_data.shape:{all_torque_data.shape}")
@@ -867,7 +867,8 @@ if __name__ == "__main__":
     #                    "../../data/gouger1209/0/17.npy",
     #                    "../../data/gouger1209/0/14.npy",
     #                    "../../data/gouger1209/0/11.npy",])
-    vis_joint_torques(["../../data/test/16.npy"])
+    # 62
+    vis_joint_torques(["../../data/gouger1209/0/62.npy"])
     # vis_joint_pos(["../../data/gouger1209/46/20.npy",
     #                "../../data/gouger1209/40/20.npy",
     #                "../../data/gouger1209/0/20.npy",
