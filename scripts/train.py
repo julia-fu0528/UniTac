@@ -21,7 +21,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     else:
         tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}", name = "regression")
 
-    data_module = SpotDataModule(classify, seq, robot_type = robot_type, batch_size= 512)  # 512 for spot, 64 for franka, 256 for franka classification
+    data_module = SpotDataModule(classify, seq, robot_type = robot_type, batch_size= 512)  # 512 for spot, 32 for franka,
     if classify:
         output_dim = num_classes
     else:
@@ -38,11 +38,11 @@ def main(num_classes, markers_path, classify, seq, robot_type):
         # accelerator="gpu",
         accelerator=device,
         # accelerator="cpu",
-        max_epochs= 5, # spot: 10
+        max_epochs= 30, # spot: 10
         logger=[tb_logger],
         callbacks=[checkpoint_callback, early_stop_callback]
     )
-    trainer.fit(model, data_module)
+    # trainer.fit(model, data_module)
 
     # trainer.test(model, data_module)
 
@@ -50,7 +50,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     # Load the best model after training
     best_model_path = checkpoint_callback.best_model_path  # Get the best checkpoint path
     print(f"Loading best model from: {best_model_path}")
-    # best_model_path = os.path.join(log_dir, robot_type, "regression/version_221/best.ckpt")
+    best_model_path = os.path.join(log_dir, robot_type, "regression/version_299/checkpoints/best.ckpt")
     if robot_type == 'spot':
         trained_model = LitRobot.load_from_checkpoint(best_model_path, input_dim=38 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)
         # trained_model = load_from_checkpoint(best_model_path, input_dim=38 * seq, output_dim=num_classes * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)

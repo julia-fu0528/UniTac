@@ -15,34 +15,11 @@ class JointNetwork(nn.Module):
     def __init__(self, input_dim: int, output_dim: int, classify) -> None:
         super().__init__()
         if classify:
-            self.network = nn.Sequential(
-                nn.Flatten(),
-                nn.Linear(input_dim, 64),
-                nn.ReLU(), 
-                # nn.Dropout(0.3),
-
-                nn.Linear(64,128), 
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                nn.Linear(128, 256),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                
-                nn.Linear(256, 128),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-
-                # nn.Linear(128, 128),
-                # nn.ReLU(),
-
-                nn.Linear(128, output_dim),
-                nn.Softmax(dim=1)
-            )
             # self.network = nn.Sequential(
             #     nn.Flatten(),
             #     nn.Linear(input_dim, 64),
             #     nn.ReLU(), 
-            #     nn.Dropout(0.3),
+            #     # nn.Dropout(0.3),
 
             #     nn.Linear(64,128), 
             #     nn.ReLU(),
@@ -51,25 +28,21 @@ class JointNetwork(nn.Module):
             #     nn.ReLU(),
             #     nn.Dropout(0.3),
                 
-            #     nn.Linear(256, 256),
-            #     nn.ReLU(),
-            #     # nn.Dropout(0.3),
-
             #     nn.Linear(256, 128),
             #     nn.ReLU(),
-            #     # nn.Dropout(0.3),
+            #     nn.Dropout(0.3),
 
+            #     # nn.Linear(128, 128),
+            #     # nn.ReLU(),
 
             #     nn.Linear(128, output_dim),
             #     nn.Softmax(dim=1)
             # )
-        else:
-            # spot
             self.network = nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(input_dim, 64),
                 nn.ReLU(), 
-                nn.Dropout(0.3),
+                # nn.Dropout(0.3),
 
                 nn.Linear(64,128), 
                 nn.ReLU(),
@@ -78,12 +51,40 @@ class JointNetwork(nn.Module):
                 nn.ReLU(),
                 nn.Dropout(0.3),
                 
-                nn.Linear(256, 256),
-                nn.ReLU(),
-                # nn.Dropout(0.3),
-
                 nn.Linear(256, 128),
                 nn.ReLU(),
+                nn.Dropout(0.3),
+
+                # nn.Linear(256, 128),
+                # nn.ReLU(),
+                # nn.Dropout(0.3),
+
+
+                nn.Linear(128, output_dim),
+                nn.Softmax(dim=1)
+                
+            )
+        else:
+            # spot
+            self.network = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(input_dim, 64),
+                nn.ReLU(), 
+                # nn.Dropout(0.3),
+
+                nn.Linear(64,128), 
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(128, 256),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+
+                # nn.Linear(256, 128),
+                # nn.ReLU(),
                 # nn.Dropout(0.3),
 
 
@@ -219,7 +220,8 @@ class LitRobot(L.LightningModule):
             key = int(seq_ids[i].item())
             if self.buffers.get(key) is None:
                 # print(f"key:{key}")
-                self.buffers[key], self.weights = self.create_buffers(self.seq, alpha=0.1, sliding_win=40)
+                self.buffers[key], self.weights = self.create_buffers(self.seq, alpha=0.1, sliding_win = 60) # 60 for spot, 40 for franka
+                # print(40)
             self.buffers[key] = np.roll(self.buffers[key], 1, axis=0)
             # print(f"self.buffer before: {self.buffer}")
             buffer = self.buffers[key]
