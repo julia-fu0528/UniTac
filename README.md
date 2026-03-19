@@ -57,34 +57,40 @@ Download the [model checkpoint](https://drive.google.com/drive/folders/1gu0QhYxP
 ```
 cd scripts/
 
-python store_robot_state.py --markers_path your_marker_path --output_dir your_output_path --robot_type spot_or_franka --duration 2 --hostname xxx.xxx.xxx.xxx
+python store_robot_state.py --markers_path your_marker_path --output_dir your_output_path 
+       --robot_type spot_or_franka --duration 2 --hostname xxx.xxx.xxx.xxx
 ```
 
 **Step2: Data Preprocessing**
 ```
-python dataset.py --session spot_dataset --data_dir ../data --markers_path your_marker_path --seq 1 --robot_type spot_or_franka
+python dataset.py --session spot_dataset --data_dir ../data --markers_path your_marker_path 
+       --seq 1 --robot_type spot_or_franka
 ```
 
 **Step3: Training**
 ```
-python train.py --session spot_dataset --data_dir ../data --markers_path your_marker_path --device "gpu" --seq 1 --robot_type spot_or_franka
+python train.py --session spot_dataset --data_dir ../data --markers_path  your_marker_path --device "gpu" 
+       --seq 1 --robot_type spot_or_franka
 ```
 
 **Step4: Online Prediction**
 Without physical Human Robot Interaction:
 ```
-python predict.py --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt --markers_path your_marker_path --data_dir ../data/spot_dataset --device cpu --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx
+python predict.py --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt 
+      --markers_path your_marker_path --data_dir ../data/spot_dataset --device cpu 
+      --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx
 ```
 
 With physical Human Robot Interaction:
 ```
 python predict.py --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt --markers_path your_marker_path --data_dir ../data/spot_dataset --device cpu --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx \
---choreo --choreography-filepaths ../choreo/lay_down.txt ../choreo/sit.txt\
-../choreo/pace_right.txt ../choreo/pace_left.txt\
-../choreo/turn_left_back.txt ../choreo/turn_right_front.txt ../choreo/turn_right_back.txt ../choreo/turn_left_front.txt\
-../choreo/tilt_left_back.txt ../choreo/tilt_left_front.txt ../choreo/tilt_right_back.txt ../choreo/tilt_right_front.txt\
-../choreo/step_back_left.txt ../choreo/step_back_right.txt ../choreo/step_front_left.txt ../choreo/step_front_right.txt\
-../choreo/play_bow.txt ../choreo/play_bow_happy.txt
+       --choreo 
+       --choreography-filepaths ../choreo/lay_down.txt ../choreo/sit.txt
+                                ../choreo/pace_right.txt ../choreo/pace_left.txt
+                                ../choreo/turn_left_back.txt ../choreo/turn_right_front.txt ../choreo/turn_right_back.txt ../choreo/turn_left_front.txt
+                                ../choreo/tilt_left_back.txt ../choreo/tilt_left_front.txt ../choreo/tilt_right_back.txt ../choreo/tilt_right_front.txt
+                                ../choreo/step_back_left.txt ../choreo/step_back_right.txt ../choreo/step_front_left.txt ../choreo/step_front_right.txt
+                                ../choreo/play_bow.txt ../choreo/play_bow_happy.txt
 
 ```
 
