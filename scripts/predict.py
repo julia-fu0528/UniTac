@@ -4,14 +4,7 @@ import sys
 import numpy as np
 import open3d as o3d
 from pathlib import Path
-from collections import Counter
-from scipy.spatial import cKDTree
 from natsort import natsorted
-from urdfpy import URDF
-import matplotlib.pyplot as plt
-import lightning as L
-
-from dataset import SpotDataModule
 
 import torch
 from network import LitRobot
@@ -20,10 +13,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
 
 from src.utils.visualizer import RobotVisualizer
-from src.utils.helpers import sample_points_from_mesh
-from src.utils.visualize_mesh import create_viewing_parameters, visualize_with_camera
-from src.utils.visualize_robot_state import update_meshes_with_fk, combine_meshes_o3d, create_red_markers, compute_forward_kinematics, find_closest_vertices, load_joint_torques, prepare_trimesh_fk, convert_trimesh_to_open3d
-
 
 
 # imports for SPOT
@@ -31,15 +20,11 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client import create_standard_sdk
 import bosdyn.client.util
 
-from bosdyn.api.spot import choreography_sequence_pb2
 from bosdyn.client import create_standard_sdk
 from bosdyn.choreography.client.choreography import (ChoreographyClient,
                                                             load_choreography_sequence_from_txt_file)
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.api import lease_pb2
-from google.protobuf.timestamp_pb2 import Timestamp
-from bosdyn.api import header_pb2
-from bosdyn.client import ResponseError, RpcError, create_standard_sdk
+from bosdyn.client import ResponseError, create_standard_sdk
 from bosdyn.client.exceptions import UnauthenticatedError
 from bosdyn.client.license import LicenseClient
 
@@ -67,7 +52,6 @@ class RealtimeRobot:
             tuple(np.round(v.astype(np.float32), decimals=4)): k for k, v in self.marker_positions.items()}
         self.marker_posarray = np.array(list(self.marker_positions.values()))
         print(f"Loaded marker positions: {self.marker_positions}")
-        # sys.exit()
 
         folder_path =  Path(__file__).parent
         torque_dir = os.path.join(folder_path, data_dir)
@@ -103,7 +87,6 @@ class RealtimeRobot:
         vis.create_window()
         self.visualizer = RobotVisualizer(robot_type=robot_type, vis=vis)
         self.original_colors = [np.asarray(pcd.colors).copy() for pcd in self.visualizer.point_clouds]
-        # self.visualizer = RobotVisualizer(robot_type=robot_type)
     
 
 
@@ -121,10 +104,6 @@ class RealtimeRobot:
         """
         if self.device == "gpu":
             self.device = "cuda"
-        # checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
-        # model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
-        #                 classify=self.classify, seq = self.seq, robot_type=self.robot_type)
-        # model.load_state_dict(checkpoint['state_dict'])
         model = LitRobot.load_from_checkpoint(
             self.ckpts_path,
             input_dim=input_dim,
@@ -135,17 +114,6 @@ class RealtimeRobot:
             robot_type=self.robot_type,
             map_location=torch.device(self.device)
         )
-        # data_module = SpotDataModule(
-        #     classify=self.classify,
-        #     seq=self.seq,
-        #     robot_type=self.robot_type,
-        #     batch_size=32  # Adjust as needed
-        # )
-        # data_module.setup()
-        # test_dataloader = data_module.test_dataloader()
-        # trainer = L.Trainer()
-        # trainer.test(model, test_dataloader)
-        # sys.exit()
         model.to(self.device)
         model.eval()
         return model
@@ -173,9 +141,8 @@ class RealtimeRobot:
         return self.data_buffer, self.buffer, self.weights
     
     def predict(self):
-        # Real time prediction
+        # Online prediction
         self.buffer = np.roll(self.buffer, 1, axis=0) 
-        # processed_data = data_buffer.flatten()
         processed_data_tensor = torch.tensor(self.data_buffer.flatten(), dtype=torch.float32).to(self.model.device).reshape(1, -1)
         with torch.no_grad():
             if self.device == "gpu":
@@ -208,8 +175,6 @@ class RealtimeRobot:
 
 
     def vis_prediction(self, pos, threshold=0.1):
-        # pos = np.array([-0.02387589, -0.04341407,  0.4468466 ])
-        # original_vertex_colors = np.asarray(total_mesh.vertex_colors).copy()
         print(f"pos: {pos}")
 
         # calculate the distance from y_hat_pos to all the marker positions
@@ -218,24 +183,15 @@ class RealtimeRobot:
         min_indices = torch.tensor([min_indices], dtype=torch.long).to(self.device)
         y_hat_label = min_indices
 
-        # print(f"y_hat_label: {y_hat_label}")
-
         for pcd, orig_color in zip(self.visualizer.point_clouds, self.original_colors):
             pcd.colors = o3d.utility.Vector3dVector(orig_color)
 
         cur_marker_pcd_indices, cur_marker_local_indices = self.visualizer.pos_2pcd(pos, radius=0.03)
-        # print(f"cur_marker_pcd_indices: {cur_marker_pcd_indices[0]}")
         for pcd_idx, local_idx in zip(cur_marker_pcd_indices, cur_marker_local_indices):
             colors = np.asarray(self.visualizer.point_clouds[pcd_idx].colors)
             colors[local_idx] = [1, 0, 0]
             self.visualizer.point_clouds[pcd_idx].colors = o3d.utility.Vector3dVector(colors)
         
-        # if self.vis:
-        #     self.vis.poll_events()
-        #     self.vis.update_renderer()
-       
-    
-
 
 class RealtimeSpot(RealtimeRobot):
     def __init__(self, markers_path, data_dir, classify, ckpts_path, seq, device, hostname, choreo, choreography_filepaths=None):
@@ -329,7 +285,7 @@ class RealtimeSpot(RealtimeRobot):
         state = self.robot_state_client.get_robot_state()
 
         # Preprocess the data for inference
-        processed_data = self.preprocess_realtime_data(state, normalize=True)
+        processed_data = self.preprocess_realtime_data(state)
         processed_data = self.normalize_data(processed_data)
         self.data_buffer[0] = processed_data
 
@@ -343,32 +299,8 @@ class RealtimeSpot(RealtimeRobot):
                 print(f"Joint {joint_info['name']} not found in URDF.")
         self.visualizer.visualize(cfg=joint_positions)
 
-    # def update_vis(self):
-    #     if self.current_state is None:
-    #         return
-    #     self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
-    #     joint_position = self.current_state.position
-    #     # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
-    #     joint_torque = self.current_state.effort
-    #     state = np.hstack([joint_torque[:7], joint_position[:7]], )
-    #     # states = np.load("../data/franka_right/test12/no_contact.npy", allow_pickle=True)
-    #     # if self.idx >= len(states):
-    #         # self.idx = 0
-    #     # state = states[self.idx]
-    #     state = self.normalize_data(state)
-    #     # state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
 
-    #     print(f"state.shape: {state.shape}")
-    #     # self.idx += 1
-    #     self.save_rate.sleep()
-
-    #     self.data_buffer[0] = state
-    #     print(f"Processed data shape: {state.shape}")
-    #     cfg = {joint: joint_position[idx] for idx, joint in enumerate(self.visualizer.robot.actuated_joint_names)}
-    #     self.visualizer.visualize(cfg=cfg)
-        
-
-    def preprocess_realtime_data(self, data, normalize=True):
+    def preprocess_realtime_data(self, data):
         """
         Preprocess the real-time data for inference.
         """
@@ -392,8 +324,6 @@ class RealtimeSpot(RealtimeRobot):
                 pos_data[0, j] = joint['position']
                 joint_names.append(joint['name'])
         data = np.hstack((torque_data, pos_data))
-        # if normalize:
-            # data = 2 * ((data - data.min()) / (data.max() - data.min())) - 1
         data_processed = np.array(data)
 
         return data_processed
@@ -485,29 +415,6 @@ class RealtimeSpot(RealtimeRobot):
             print(f"Head - happy sway")
             self.exe_choreo(self.choreos[17])
 
-        if False:
-            distance = np.linalg.norm(pos - self.coordinates.get(str(len(self.markers_pos))))
-            print(f"pos: {pos}, distance: {distance}")
-            # if distance < threshold:
-            # # step, trot, turn_2step, twerk, unstow
-            # left
-            if pos[1] > 0.09 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-                self.exe_choreo(self.choreos[0]) # step
-            # right
-            elif pos[1] < -0.11 and -0.35 < pos[0] < 0.3 and pos[2] < 0.11:
-                self.exe_choreo(self.choreos[1]) # trot
-            # front
-            elif pos[0] > 0.15 and pos[2] < 0.1 and -0.14 < pos[1] < 0.14:
-                self.exe_choreo(self.choreos[2]) # turn_2step
-            # back
-            elif pos[0] < -0.45 and pos[2] < 0.1:
-            # and -0.14 < pos[1] < 0.14:
-                self.exe_choreo(self.choreos[3]) # twerk
-            # top
-            elif pos[2] > 0.11:
-                self.exe_choreo(self.choreos[4]) # unstow
-            # else: 
-            #     continue
 
 
 
@@ -535,18 +442,11 @@ class RealtimeFranka(RealtimeRobot):
             return
         self.data_buffer = np.roll(self.data_buffer, 1, axis=0) 
         joint_position = self.current_state.position
-        # joint_position = np.array([-1.71, 1.40, 2.07, -2.44, -1.04, 1.36, -0.74, 0.0, 0.0,])
         joint_torque = self.current_state.effort
         state = np.hstack([joint_torque[:7], joint_position[:7]], )
-        # states = np.load("../data/franka_right/test12/no_contact.npy", allow_pickle=True)
-        # if self.idx >= len(states):
-            # self.idx = 0
-        # state = states[self.idx]
         state = self.normalize_data(state)
-        # state = 2 * ((state - state.min()) / (state.max() - state.min())) - 1
 
         print(f"state.shape: {state.shape}")
-        # self.idx += 1
         self.save_rate.sleep()
 
         self.data_buffer[0] = state
@@ -600,21 +500,15 @@ def main():
     data_buffer, buffer, weights = realtime_robot.create_buffers(seq, radius=0.04, alpha=0.7, sliding_win=20)
     try:
         idx = 0
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()  
         while True:
-            if idx > 1000:
-                end.record()
-                torch.cuda.synchronize()
-                print(f"time:{start.elapsed_time(end) / 1000}")
             idx += 1
-            # Real-time prediction
+            # Online prediction
             realtime_robot.update_vis()
             pos = realtime_robot.predict()
             # Visualize the predictions
             realtime_robot.vis_prediction(pos)
             if robot_type == 'spot' and options.choreo:
+                # allow 50 frames to stabilize the robot
                 if idx > 50:
                     realtime_robot.respond(pos)
             elif robot_type == 'franka':

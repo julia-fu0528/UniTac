@@ -1,7 +1,5 @@
 import argparse
 import os
-import sys
-import numpy as np
 from natsort import natsorted
 from pathlib import Path
 from lightning.pytorch import Trainer, seed_everything
@@ -9,7 +7,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
 from network import LitRobot
-from dataset import SpotDataModule
+from dataset import RobotDataModule
 
 def main(num_classes, markers_path, classify, seq, robot_type):
     seed_everything(42)
@@ -21,7 +19,7 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     else:
         tb_logger = TensorBoardLogger(f"../gouger_logs/{robot_type}", name = "regression")
 
-    data_module = SpotDataModule(classify, seq, robot_type = robot_type, batch_size= 512)  # 512 for spot, 32 for franka,
+    data_module = RobotDataModule(classify, seq, robot_type = robot_type, batch_size= 512)  # 512 for spot, 32 for franka,
     if classify:
         output_dim = num_classes
     else:
@@ -35,41 +33,33 @@ def main(num_classes, markers_path, classify, seq, robot_type):
     early_stop_callback = EarlyStopping(monitor="val/acc", patience=100, mode="max")
 
     trainer = Trainer(
-        # accelerator="gpu",
         accelerator=device,
-        # accelerator="cpu",
-        max_epochs= 30, # spot: 10
+        max_epochs= 10, # spot: 10, franka: 30
         logger=[tb_logger],
         callbacks=[checkpoint_callback, early_stop_callback]
     )
-    # trainer.fit(model, data_module)
+    trainer.fit(model, data_module)
 
-    # trainer.test(model, data_module)
+    trainer.test(model, data_module)
 
-    # finish model training
-    # Load the best model after training
-    best_model_path = checkpoint_callback.best_model_path  # Get the best checkpoint path
-    print(f"Loading best model from: {best_model_path}")
-    best_model_path = os.path.join(log_dir, robot_type, "regression/version_299/checkpoints/best.ckpt")
-    if robot_type == 'spot':
-        trained_model = LitRobot.load_from_checkpoint(best_model_path, input_dim=38 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)
-        # trained_model = load_from_checkpoint(best_model_path, input_dim=38 * seq, output_dim=num_classes * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)
-    elif robot_type == 'franka':
-        trained_model = LitRobot.load_from_checkpoint(best_model_path, input_dim=14 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)
+    # # finish model training
+    # # Load the best model after training
+    # best_model_path = checkpoint_callback.best_model_path  # Get the best checkpoint path
+    # print(f"Loading best model from: {best_model_path}")
+    # # best_model_path = os.path.join(log_dir, robot_type, "regression/version_2/checkpoints/best.ckpt")
+    # if robot_type == 'spot':
+    #     trained_model = LitRobot.load_from_checkpoint(best_model_path, input_dim=39 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)
+    #     # trained_model = load_from_checkpoint(best_model_path, input_dim=38 * seq, output_dim=num_classes * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)
+    # elif robot_type == 'franka':
+    #     trained_model = LitRobot.load_from_checkpoint(best_model_path, input_dim=14 * seq, output_dim=output_dim * seq, markers_path=markers_path, classify=classify, seq=seq, robot_type=robot_type)
     
-    trainer.validate(trained_model, datamodule=data_module)
+    # trainer.validate(trained_model, datamodule=data_module)
 
 
 def load_from_checkpoint(ckpts_path, input_dim, output_dim, markers_path, classify, seq, robot_type):
         """
         Load a model from a checkpoint file.
         """
-        # if self.device == "gpu":
-        #     self.device = "cuda"
-        # checkpoint = torch.load(self.ckpts_path, map_location=torch.device(self.device))
-        # model = LitRobot(input_dim=input_dim, output_dim=output_dim, markers_path=self.markers_path, 
-        #                 classify=self.classify, seq = self.seq, robot_type=self.robot_type)
-        # model.load_state_dict(checkpoint['state_dict'])
         model = LitRobot.load_from_checkpoint(
             ckpts_path,
             input_dim=input_dim,
@@ -80,17 +70,6 @@ def load_from_checkpoint(ckpts_path, input_dim, output_dim, markers_path, classi
             robot_type=robot_type,
             map_location=torch.device("cuda")
         )
-        # data_module = SpotDataModule(
-        #     classify=self.classify,
-        #     seq=self.seq,
-        #     robot_type=self.robot_type,
-        #     batch_size=32  # Adjust as needed
-        # )
-        # data_module.setup()
-        # test_dataloader = data_module.test_dataloader()
-        # trainer = L.Trainer()
-        # trainer.test(model, test_dataloader)
-        # sys.exit()
         model.to("cuda")
         model.eval()
         return model
@@ -129,15 +108,6 @@ if __name__ == "__main__":
     classes = [f.split('.')[0] for f in torque_files]
     num_classes = len(classes)
 
-    # markers_pos = np.loadtxt(markers_path, delimiter=",")
-    # marker_positions = {f"{i}": pos for i, pos in enumerate(markers_pos)}
-
-    # calculate the euclidean distance between the 10th and 11th marker
-    # marker_10 = marker_positions.get('58')
-    # marker_11 = marker_positions.get('61')
-    # euclidean_distance = np.linalg.norm(marker_10 - marker_11)
-    # print(f"Euclidean distance between marker 10 and 11: {euclidean_distance}")
-    # sys.exit()
 
     main(num_classes, markers_path, classify, seq, robot_type=robot_type)
     

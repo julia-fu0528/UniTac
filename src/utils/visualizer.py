@@ -4,6 +4,7 @@ import numpy as np
 import open3d as o3d
 from collections import OrderedDict
 from scipy.spatial import cKDTree
+import sys
 
 class RobotVisualizer():
     def __init__(self, robot_type, vis=None):
@@ -13,7 +14,7 @@ class RobotVisualizer():
         self.point_clouds = []
         self.robot_type = robot_type
 
-        self.points_per_mesh = 300 if robot_type == "spot" else 30000
+        self.points_per_mesh = 3000 if robot_type == "spot" else 30000
         self.robot = URDF.load(f"../{robot_type}_description/{robot_type}.urdf")
         
         # for markers
@@ -60,7 +61,7 @@ class RobotVisualizer():
             initializing = True
         else:
             initializing = False
-        for tm in trimesh_fk:
+        for i, tm in enumerate(trimesh_fk):
             o3d_mesh = o3d.geometry.TriangleMesh(
                 vertices=o3d.utility.Vector3dVector(tm.vertices.copy()),
                 triangles=o3d.utility.Vector3iVector(tm.faces.copy())
@@ -73,8 +74,8 @@ class RobotVisualizer():
 
             o3d_mesh.transform(trimesh_fk[tm])
             self.prev_fks.append(trimesh_fk[tm]) # world -> T1
-            if len(tm.vertices) > 1000 and self.robot_type == "spot":
-                pcd = o3d_mesh.sample_points_uniformly(number_of_points= 70 * self.points_per_mesh)  #1300
+            if (i==0 or i==1) and self.robot_type == "spot":
+                pcd = o3d_mesh.sample_points_uniformly(number_of_points= 5 * self.points_per_mesh)  #1300
             else:
                 pcd = o3d_mesh.sample_points_uniformly(number_of_points=self.points_per_mesh)
             if self.vis:
@@ -97,12 +98,12 @@ class RobotVisualizer():
     def update_open3d_meshes(self, trimesh_fk):    
         for idx, tm in enumerate(trimesh_fk):
             current_transform = trimesh_fk[tm] # world -> T2
-
+            inv = np.linalg.inv(self.prev_fks[idx])
             # we want to transform T1 -> T2
-            self.o3d_meshes_default[idx].transform(np.linalg.inv(self.prev_fks[idx]))
+            self.o3d_meshes_default[idx].transform(inv)
             self.o3d_meshes_default[idx].transform(current_transform)
 
-            self.point_clouds[idx].transform(np.linalg.inv(self.prev_fks[idx]))
+            self.point_clouds[idx].transform(inv)
             self.point_clouds[idx].transform(current_transform)
 
             if self.vis:
@@ -131,8 +132,9 @@ class RobotVisualizer():
 
                 for geometry in self.o3d_meshes_default:
                     self.vis.update_geometry(geometry)
-                self.vis.poll_events()
-                self.vis.update_renderer()
+                if self.vis:
+                    self.vis.poll_events()
+                    self.vis.update_renderer()
             # else:
             #     o3d.visualization.draw_geometries(self.o3d_meshes_default)
             #     o3d.visualization.draw_geometries(self.point_clouds)
