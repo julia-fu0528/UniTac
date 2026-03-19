@@ -74,6 +74,7 @@ python train.py --session spot_dataset --data_dir ../data --markers_path  your_m
 ```
 
 **Step4: Online Prediction**
+
 Without physical Human Robot Interaction:
 ```
 python predict.py --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt 
