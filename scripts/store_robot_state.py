@@ -17,8 +17,8 @@ import open3d as o3d
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
 
-from src.utils.visualizer import RobotVisualizer
-from src.utils.visualize_robot_state import find_closest_vertices, compute_forward_kinematics, prepare_trimesh_fk, \
+from utils.visualizer import RobotVisualizer
+from utils.visualize_robot_state import find_closest_vertices, compute_forward_kinematics, prepare_trimesh_fk, \
 convert_trimesh_to_open3d, create_red_markers
 
 

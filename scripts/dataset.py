@@ -15,7 +15,7 @@ from sklearn.preprocessing import MinMaxScaler
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '..'))
 
-from src.utils.helpers import load_joint_torques, load_joint_positions
+from utils.helpers import load_joint_torques, load_joint_positions
 
 class JointLabel:
     def __init__(self, torque_dir, markers_path, classify, robot_type) -> None:

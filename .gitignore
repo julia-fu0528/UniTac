@@ -2,8 +2,7 @@ unitac_env/*
 spot_description/*
 franka_description/*
 *.npy
-data/*
-src/utils/vis/*
+data/*utils/vis/*
 preprocessed_data*/*
 gouger_logs/*
 scripts/__pycache__/*
