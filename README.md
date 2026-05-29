@@ -30,8 +30,8 @@ pip install "numpy<1.24"
 
 ## Downloads
 **Third Party**
-- Download SPOT mesh urdf and related meshes [here](https://drive.google.com/drive/folders/1IT3_eVo6WOz9hAca2uvpmRWlpXH9W97E?usp=sharing) into the root directory of this repository
-- Download FR3 mesh urdf and related meshes from the [official repository](https://github.com/frankaemika/franka_description/tree/main/robots/fr3) into the root director of this repository.
+- Download SPOT mesh urdf and related meshes [here](https://drive.google.com/drive/folders/1IT3_eVo6WOz9hAca2uvpmRWlpXH9W97E?usp=sharing) into the root directory as /spot_description.
+- Download FR3 mesh urdf and related meshes from the [official repository](https://github.com/frankaemika/franka_description/tree/main/robots/fr3) into the root director as /franka_description.
 
 **Dataset**
 - Downlaod the sampled ground truth touch locations on [Spot](https://drive.google.com/file/d/1StENgdsREB_C42rrWShTXtaZ_9jWJE9l/view?usp=drive_link) and [FR3](https://drive.google.com/file/d/1IeHhX6Kyk7Yhe_Ho4edR7fjRe1DOHGl4/view?usp=drive_link) into data/ of the repository's root.
@@ -57,34 +57,41 @@ Download the [model checkpoint](https://drive.google.com/drive/folders/1gu0QhYxP
 ```
 cd scripts/
 
-python store_robot_state.py --markers_path your_marker_path --output_dir your_output_path 
+python store_robot_state.py 
+       --markers_path your_marker_path --output_dir your_output_path 
        --robot_type spot_or_franka --duration 2 --hostname xxx.xxx.xxx.xxx
 ```
 
 **Step2: Data Preprocessing**
 ```
-python dataset.py --session spot_dataset --data_dir ../data --markers_path your_marker_path 
+python dataset.py 
+       --session spot_dataset --data_dir ../data --markers_path your_marker_path 
        --seq 1 --robot_type spot_or_franka
 ```
 
 **Step3: Training**
 ```
-python train.py --session spot_dataset --data_dir ../data --markers_path  your_marker_path --device "gpu" 
-       --seq 1 --robot_type spot_or_franka
+python train.py 
+       --session spot_dataset --data_dir ../data --markers_path  your_marker_path 
+       --device "gpu" --seq 1 --robot_type spot_or_franka
 ```
 
 **Step4: Online Prediction**
 
 Without physical Human Robot Interaction:
 ```
-python predict.py --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt 
+python predict.py 
+       --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt 
       --markers_path your_marker_path --data_dir ../data/spot_dataset --device cpu 
       --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx
 ```
 
 With physical Human Robot Interaction:
 ```
-python predict.py --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt --markers_path your_marker_path --data_dir ../data/spot_dataset --device cpu --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx \
+python predict.py 
+       --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt 
+       --markers_path your_marker_path --data_dir ../data/spot_dataset 
+       --device cpu --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx 
        --choreo 
        --choreography-filepaths ../choreo/lay_down.txt ../choreo/sit.txt
                                 ../choreo/pace_right.txt ../choreo/pace_left.txt
