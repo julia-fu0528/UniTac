@@ -1,2 +1,30 @@
 -f ../../../prebuilt
-bosdyn-client >= 3.1
+
+# Boston Dynamics SDK
+bosdyn-client>=3.1
+bosdyn-mission
+bosdyn-choreography-client
+bosdyn-orbit
+
+# ML / training
+lightning==2.6.0
+transformers
+tokenizers==0.20.0
+torch==2.8.0
+torchvision==0.23.0
+torchaudio==2.8.0
+tensorboard
+scikit-learn==1.6.1
+
+# Visualization & data
+matplotlib==3.9.4
+seaborn==0.13.2
+open3d==0.18.0
+
+# Robot / geometry
+urdfpy==0.0.22
+networkx
+
+# Utilities
+natsort
+numpy<1.24
