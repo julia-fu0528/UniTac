@@ -91,20 +91,24 @@
 
    <details>
    <summary><b>Without physical Human Robot Interaction</b></summary>
-   ```
+
+   ```bash
    python predict.py 
           --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt 
-          --markers_path your_marker_path --data_dir ../data/spot_dataset --device cpu 
-          --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx
+          --markers_path your_marker_path --data_dir ../data/spot_dataset 
+          --device cpu --seq 1 --robot_type spot_or_franka 
+          --hostname xxx.xxx.xxx.xxx
    ```
    </details>
    <details>
    <summary><b>With physical Human Robot Interaction</b></summary>
-   ```
+
+   ```bash
    python predict.py 
           --ckpts_path ../unitac_net_logs/spot/regression/version_0/checkpoints/best.ckpt 
           --markers_path your_marker_path --data_dir ../data/spot_dataset 
-          --device cpu --seq 1 --robot_type spot_or_franka --hostname xxx.xxx.xxx.xxx 
+          --device cpu --seq 1 --robot_type spot_or_franka 
+          --hostname xxx.xxx.xxx.xxx 
           --choreo 
           --choreography-filepaths ../choreo/lay_down.txt ../choreo/sit.txt
                                    ../choreo/pace_right.txt ../choreo/pace_left.txt
